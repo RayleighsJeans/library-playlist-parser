@@ -137,42 +137,86 @@ class MusicLibraryCache:
         logger.info(f"Cache built: {file_count} files indexed")
         logger.info(f"Album artists found: {len(self.album_artist_index)}")
     
-    def find_match(self, title: str, artist: str, album: str = "") -> Optional[str]:
-        """Find matching file in cache based on metadata"""
+    def find_match(self, title: str, artist: str, album: str = "") -> Tuple[Optional[str], Optional[str]]:
+        """Find matching file in cache based on metadata
+        
+        Returns:
+            Tuple of (matched_file_path, None) if found, or (None, failure_reason) if not found
+        """
         title_norm = self.normalize_string(title)
         artist_norm = self.normalize_string(artist)
         album_norm = self.normalize_string(album)
         
+        # Collect diagnostic information
+        title_matches = []
+        artist_matches = []
+        album_matches = []
+        
         # Strategy 1: Try exact match on title + artist + album
         for file_key, metadata in self.cache.items():
-            if (metadata['title_norm'] == title_norm and 
+            if metadata['title_norm'] == title_norm:
+                title_matches.append(file_key)
+            if metadata['artist_norm'] == artist_norm or metadata['albumartist_norm'] == artist_norm:
+                artist_matches.append(file_key)
+            if metadata['album_norm'] == album_norm:
+                album_matches.append(file_key)
+                
+            if (metadata['title_norm'] == title_norm and
                 metadata['artist_norm'] == artist_norm and
                 metadata['album_norm'] == album_norm):
-                return file_key
+                return file_key, None
         
         # Strategy 2: Try match on title + artist (album might differ)
         for file_key, metadata in self.cache.items():
-            if (metadata['title_norm'] == title_norm and 
+            if (metadata['title_norm'] == title_norm and
                 metadata['artist_norm'] == artist_norm):
-                return file_key
+                return file_key, None
         
         # Strategy 3: Try matching with album artist instead
         for file_key, metadata in self.cache.items():
-            if (metadata['title_norm'] == title_norm and 
+            if (metadata['title_norm'] == title_norm and
                 metadata['albumartist_norm'] == artist_norm):
-                return file_key
+                return file_key, None
         
         # Strategy 4: Fuzzy match - title matches and artist is contained
         for file_key, metadata in self.cache.items():
             if metadata['title_norm'] == title_norm:
                 # Check if artist is part of the metadata artist or vice versa
-                if (artist_norm in metadata['artist_norm'] or 
+                if (artist_norm in metadata['artist_norm'] or
                     metadata['artist_norm'] in artist_norm or
                     artist_norm in metadata['albumartist_norm'] or
                     metadata['albumartist_norm'] in artist_norm):
-                    return file_key
+                    return file_key, None
         
-        return None
+        # No match found - generate detailed failure reason
+        failure_parts = []
+        
+        if not title_matches:
+            failure_parts.append(f"No files found with title '{title}'")
+        else:
+            failure_parts.append(f"Found {len(title_matches)} file(s) with matching title")
+            
+        if not artist_matches:
+            failure_parts.append(f"No files found with artist '{artist}'")
+        else:
+            failure_parts.append(f"Found {len(artist_matches)} file(s) with matching artist")
+            
+        if album and not album_matches:
+            failure_parts.append(f"No files found with album '{album}'")
+        elif album:
+            failure_parts.append(f"Found {len(album_matches)} file(s) with matching album")
+        
+        # Check for partial matches
+        if title_matches and artist_matches:
+            # We have both title and artist matches, but not in the same file
+            failure_parts.append("Title and artist exist separately but not in the same file")
+        elif title_matches:
+            failure_parts.append("Title exists but with different artist")
+        elif artist_matches:
+            failure_parts.append("Artist exists but with different title")
+        
+        failure_reason = "; ".join(failure_parts)
+        return None, failure_reason
 
 
 class PlaylistPathParser:
@@ -312,7 +356,7 @@ class PlaylistMatcher:
                         duration, artist, title, album = parsed
                         
                         # Find match in library
-                        matched_path = self.cache.find_match(title, artist, album)
+                        matched_path, failure_reason = self.cache.find_match(title, artist, album)
                         
                         if matched_path:
                             # Convert to relative path from music directory
@@ -320,13 +364,17 @@ class PlaylistMatcher:
                             matched_entries.append((extinf_line, str(rel_path)))
                             logger.debug(f"✓ Matched: {artist} - {title}")
                         else:
+                            # Log detailed failure reason
+                            logger.warning(f"✗ No match: {artist} - {title}")
+                            logger.warning(f"  Reason: {failure_reason}")
+                            
                             unmatched_entries.append({
                                 'artist': artist,
                                 'title': title,
                                 'album': album,
-                                'original_path': path_line
+                                'original_path': path_line,
+                                'failure_reason': failure_reason
                             })
-                            logger.warning(f"✗ No match: {artist} - {title}")
                     
                     i += 2  # Skip both lines
                 else:
@@ -359,6 +407,7 @@ class PlaylistMatcher:
                     f.write(f"Title: {entry['title']}\n")
                     f.write(f"Album: {entry['album']}\n")
                     f.write(f"Original Path: {entry['original_path']}\n")
+                    f.write(f"Failure Reason: {entry.get('failure_reason', 'Unknown')}\n")
                     f.write("-" * 80 + "\n")
         
         # Print summary
