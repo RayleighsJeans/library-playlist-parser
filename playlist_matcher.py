@@ -151,6 +151,7 @@ class MusicLibraryCache:
         title_matches = []
         artist_matches = []
         album_matches = []
+        title_artist_album_matches = []  # Files matching artist and album
         
         # Strategy 1: Try exact match on title + artist + album
         for file_key, metadata in self.cache.items():
@@ -160,6 +161,11 @@ class MusicLibraryCache:
                 artist_matches.append(file_key)
             if metadata['album_norm'] == album_norm:
                 album_matches.append(file_key)
+            
+            # Track files that match artist and album (for partial matching)
+            if ((metadata['artist_norm'] == artist_norm or metadata['albumartist_norm'] == artist_norm) and
+                metadata['album_norm'] == album_norm):
+                title_artist_album_matches.append(file_key)
                 
             if (metadata['title_norm'] == title_norm and
                 metadata['artist_norm'] == artist_norm and
@@ -187,6 +193,55 @@ class MusicLibraryCache:
                     artist_norm in metadata['albumartist_norm'] or
                     metadata['albumartist_norm'] in artist_norm):
                     return file_key, None
+        
+        # Strategy 5: Partial match - if artist matches, find best title match
+        # Priority: titles in matching album > titles by same artist
+        if artist_matches:
+            logger.info(f"Attempting partial match for artist '{artist}'")
+            
+            # First, try to find similar titles in the matching album
+            if title_artist_album_matches:
+                logger.info(f"  Found {len(title_artist_album_matches)} tracks by artist in album '{album}'")
+                # Use fuzzy string matching on titles
+                best_match = None
+                best_score = 0
+                
+                for file_key in title_artist_album_matches:
+                    metadata = self.cache[file_key]
+                    # Simple similarity: check for common words
+                    title_words = set(title_norm.split())
+                    meta_words = set(metadata['title_norm'].split())
+                    if title_words and meta_words:
+                        common = len(title_words & meta_words)
+                        score = common / max(len(title_words), len(meta_words))
+                        if score > best_score and score > 0.5:  # At least 50% similarity
+                            best_score = score
+                            best_match = file_key
+                
+                if best_match:
+                    logger.info(f"  Partial match found in album (similarity: {best_score:.2f})")
+                    return best_match, None
+            
+            # Second, try to find similar titles by the same artist (any album)
+            logger.info(f"  Searching all tracks by artist '{artist}'")
+            best_match = None
+            best_score = 0
+            
+            for file_key in artist_matches:
+                metadata = self.cache[file_key]
+                # Simple similarity: check for common words
+                title_words = set(title_norm.split())
+                meta_words = set(metadata['title_norm'].split())
+                if title_words and meta_words:
+                    common = len(title_words & meta_words)
+                    score = common / max(len(title_words), len(meta_words))
+                    if score > best_score and score > 0.5:  # At least 50% similarity
+                        best_score = score
+                        best_match = file_key
+            
+            if best_match:
+                logger.info(f"  Partial match found by artist (similarity: {best_score:.2f})")
+                return best_match, None
         
         # No match found - generate detailed failure reason
         failure_parts = []
@@ -227,13 +282,15 @@ class PlaylistPathParser:
         'artist_album': {
             'description': 'Artist(s)/Album/CD# - Track# - Artist(s) - Title - Album.ext',
             'path_parts': ['artist', 'album', 'filename'],
-            'filename_pattern': r'^(\d+)\s*-\s*(\d+)\s*-\s*(.+?)\s*-\s*(.+?)\s*-\s*(.+?)\.(\w+)$',
+            # Pattern uses ' - ' (space-dash-space) as delimiter to allow '-' in names
+            'filename_pattern': r'^(\d+) - (\d+) - (.+?) - (.+?) - (.+?)\.(\w+)$',
             'filename_groups': ['disc', 'track', 'artist', 'title', 'album', 'ext']
         },
         'albumartist_album': {
             'description': 'Album Artist/Album/CD# - Track# - Title - Artist(s) - Album.ext',
             'path_parts': ['albumartist', 'album', 'filename'],
-            'filename_pattern': r'^(\d+)\s*-\s*(\d+)\s*-\s*(.+?)\s*-\s*(.+?)\s*-\s*(.+?)\.(\w+)$',
+            # Pattern uses ' - ' (space-dash-space) as delimiter to allow '-' in names
+            'filename_pattern': r'^(\d+) - (\d+) - (.+?) - (.+?) - (.+?)\.(\w+)$',
             'filename_groups': ['disc', 'track', 'title', 'artist', 'album', 'ext']
         }
     }
@@ -312,13 +369,21 @@ class PlaylistMatcher:
             extinf_artist = ""
             extinf_title = artist_title
         
-        # Parse path using configured format
+        # Parse path using configured format to get album
         path_metadata = self.path_parser.parse_path(path_line)
         
-        # Prefer path metadata, fall back to EXTINF
-        artist = path_metadata.get('artist', '').strip() or extinf_artist.strip()
-        title = path_metadata.get('title', '').strip() or extinf_title.strip()
+        # IMPORTANT: Prefer EXTINF metadata (correct, unescaped) over path metadata
+        # The EXTINF line has the authoritative artist and title
+        # Only use path for album since EXTINF doesn't contain it
+        artist = extinf_artist.strip()
+        title = extinf_title.strip()
         album = path_metadata.get('album', '').strip()
+        
+        # Fallback: if EXTINF didn't have artist/title, use path
+        if not artist:
+            artist = path_metadata.get('artist', '').strip()
+        if not title:
+            title = path_metadata.get('title', '').strip()
         
         return duration, artist, title, album
     
