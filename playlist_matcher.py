@@ -397,8 +397,8 @@ Examples:
     )
     parser.add_argument(
         '--music-dir',
-        default='/Music',
-        help='Music library root directory (default: /Music)'
+        default='E:/Music/',
+        help='Music library root directory (default: E:/Music/)'
     )
     parser.add_argument(
         '--output',
