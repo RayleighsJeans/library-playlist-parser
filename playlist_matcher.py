@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 import logging
+import argparse
 
 try:
     from mutagen import File as MutagenFile
@@ -174,15 +175,81 @@ class MusicLibraryCache:
         return None
 
 
+class PlaylistPathParser:
+    """Parse playlist paths based on configurable format patterns"""
+    
+    # Predefined format patterns
+    FORMATS = {
+        'artist_album': {
+            'description': 'Artist(s)/Album/CD# - Track# - Artist(s) - Title - Album.ext',
+            'path_parts': ['artist', 'album', 'filename'],
+            'filename_pattern': r'^(\d+)\s*-\s*(\d+)\s*-\s*(.+?)\s*-\s*(.+?)\s*-\s*(.+?)\.(\w+)$',
+            'filename_groups': ['disc', 'track', 'artist', 'title', 'album', 'ext']
+        },
+        'albumartist_album': {
+            'description': 'Album Artist/Album/CD# - Track# - Title - Artist(s) - Album.ext',
+            'path_parts': ['albumartist', 'album', 'filename'],
+            'filename_pattern': r'^(\d+)\s*-\s*(\d+)\s*-\s*(.+?)\s*-\s*(.+?)\s*-\s*(.+?)\.(\w+)$',
+            'filename_groups': ['disc', 'track', 'title', 'artist', 'album', 'ext']
+        }
+    }
+    
+    def __init__(self, format_name: str = 'artist_album'):
+        """Initialize parser with specified format"""
+        if format_name not in self.FORMATS:
+            raise ValueError(f"Unknown format: {format_name}. Available: {list(self.FORMATS.keys())}")
+        
+        self.format = self.FORMATS[format_name]
+        self.format_name = format_name
+        logger.info(f"Using playlist path format: {format_name}")
+        logger.info(f"Format description: {self.format['description']}")
+    
+    def parse_path(self, path_line: str) -> Dict[str, str]:
+        """Parse a playlist path line and extract metadata"""
+        result = {
+            'artist': '',
+            'title': '',
+            'album': '',
+            'albumartist': '',
+            'disc': '',
+            'track': ''
+        }
+        
+        # Clean up path separators
+        clean_path = path_line.replace('..\\', '').replace('../', '').replace('\\', '/')
+        path_parts = clean_path.split('/')
+        
+        # Extract directory-level information
+        for i, part_name in enumerate(self.format['path_parts'][:-1]):  # Exclude filename
+            if i < len(path_parts) - 1:  # -1 because last part is filename
+                result[part_name] = path_parts[i]
+        
+        # Parse filename
+        if path_parts:
+            filename = path_parts[-1]
+            pattern = self.format['filename_pattern']
+            match = re.match(pattern, filename)
+            
+            if match:
+                groups = self.format['filename_groups']
+                for i, group_name in enumerate(groups):
+                    if group_name in result:  # Only store if it's a metadata field
+                        result[group_name] = match.group(i + 1)
+        
+        return result
+
+
 class PlaylistMatcher:
     """Match playlist entries to music library"""
     
-    def __init__(self, playlist_path: str, music_dir: str, output_path: str, log_path: str):
+    def __init__(self, playlist_path: str, music_dir: str, output_path: str, log_path: str,
+                 path_format: str = 'artist_album'):
         self.playlist_path = Path(playlist_path)
         self.music_dir = Path(music_dir)
         self.output_path = Path(output_path)
         self.log_path = Path(log_path)
         self.cache = MusicLibraryCache(music_dir)
+        self.path_parser = PlaylistPathParser(path_format)
         
     def parse_playlist_entry(self, extinf_line: str, path_line: str) -> Optional[Tuple[str, str, str, str]]:
         """Parse EXTINF and path lines to extract metadata"""
@@ -194,21 +261,22 @@ class PlaylistMatcher:
         duration = extinf_match.group(1)
         artist_title = extinf_match.group(2)
         
-        # Split artist and title
+        # Split artist and title from EXTINF
         if ' - ' in artist_title:
-            artist, title = artist_title.split(' - ', 1)
+            extinf_artist, extinf_title = artist_title.split(' - ', 1)
         else:
-            artist = ""
-            title = artist_title
+            extinf_artist = ""
+            extinf_title = artist_title
         
-        # Extract album from path if possible
-        # Path format: ..\Artist(s)\Album\CD# - Track# - Artist(s) - Title - Album.ext
-        album = ""
-        path_parts = path_line.replace('..\\', '').replace('../', '').split('/')
-        if len(path_parts) >= 2:
-            album = path_parts[1]  # Album is second part
+        # Parse path using configured format
+        path_metadata = self.path_parser.parse_path(path_line)
         
-        return duration, artist.strip(), title.strip(), album.strip()
+        # Prefer path metadata, fall back to EXTINF
+        artist = path_metadata.get('artist', '').strip() or extinf_artist.strip()
+        title = path_metadata.get('title', '').strip() or extinf_title.strip()
+        album = path_metadata.get('album', '').strip()
+        
+        return duration, artist, title, album
     
     def process_playlist(self):
         """Process the playlist and create new one with corrected paths"""
@@ -307,20 +375,77 @@ class PlaylistMatcher:
 
 def main():
     """Main entry point"""
-    # Configuration
-    PLAYLIST_PATH = "Favourites.m3u8"
-    MUSIC_DIR = "/Music"
-    OUTPUT_PATH = "foobar.m3u8"
-    LOG_PATH = "unmatched_songs.log"
+    parser = argparse.ArgumentParser(
+        description='Match playlist songs to music library and create corrected playlist',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Playlist Path Formats:
+  artist_album       : Artist(s)/Album/CD# - Track# - Artist(s) - Title - Album.ext (default)
+  albumartist_album  : Album Artist/Album/CD# - Track# - Title - Artist(s) - Album.ext
+
+Examples:
+  %(prog)s
+  %(prog)s --music-dir /Volumes/Music --format albumartist_album
+  %(prog)s --playlist MyPlaylist.m3u8 --output corrected.m3u8
+        """
+    )
+    
+    parser.add_argument(
+        '--playlist',
+        default='Favourites.m3u8',
+        help='Input playlist file (default: Favourites.m3u8)'
+    )
+    parser.add_argument(
+        '--music-dir',
+        default='/Music',
+        help='Music library root directory (default: /Music)'
+    )
+    parser.add_argument(
+        '--output',
+        default='foobar.m3u8',
+        help='Output playlist file (default: foobar.m3u8)'
+    )
+    parser.add_argument(
+        '--log',
+        default='unmatched_songs.log',
+        help='Unmatched songs log file (default: unmatched_songs.log)'
+    )
+    parser.add_argument(
+        '--format',
+        choices=['artist_album', 'albumartist_album'],
+        default='artist_album',
+        help='Playlist path format (default: artist_album)'
+    )
+    parser.add_argument(
+        '--list-formats',
+        action='store_true',
+        help='List available path formats and exit'
+    )
+    
+    args = parser.parse_args()
+    
+    # List formats if requested
+    if args.list_formats:
+        print("\nAvailable Playlist Path Formats:\n")
+        for name, fmt in PlaylistPathParser.FORMATS.items():
+            print(f"  {name}:")
+            print(f"    {fmt['description']}\n")
+        sys.exit(0)
     
     # Check if music directory exists
-    if not os.path.exists(MUSIC_DIR):
-        logger.error(f"Music directory not found: {MUSIC_DIR}")
-        logger.info("Please update MUSIC_DIR in the script to point to your music library")
+    if not os.path.exists(args.music_dir):
+        logger.error(f"Music directory not found: {args.music_dir}")
+        logger.info("Use --music-dir to specify your music library path")
         sys.exit(1)
     
     # Create matcher and process
-    matcher = PlaylistMatcher(PLAYLIST_PATH, MUSIC_DIR, OUTPUT_PATH, LOG_PATH)
+    matcher = PlaylistMatcher(
+        args.playlist,
+        args.music_dir,
+        args.output,
+        args.log,
+        args.format
+    )
     matcher.process_playlist()
 
 
