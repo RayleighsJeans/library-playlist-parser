@@ -116,33 +116,94 @@ python3 playlist_matcher.py \
 
 ## How It Works
 
+### Architecture
+
+The script is organized into modular components:
+
+#### **MusicLibraryCache Class**
+Manages metadata caching and song matching:
+- `extract_metadata()` - Reads audio file tags using mutagen
+- `normalize_string()` - Normalizes text for comparison
+- `build_cache_from_paths()` - Builds cache from provided file paths
+- `build_cache_from_directory()` - Scans directory for audio files
+- `build_cache()` - Flexible cache builder (accepts file paths or scans directory)
+- `find_match()` - Multi-strategy matching algorithm
+
+#### **PlaylistPathParser Class**
+Parses playlist paths using configurable regex patterns:
+- Supports multiple path format configurations
+- Uses ` - ` (space-dash-space) as delimiter to allow hyphens in names
+- Extensible format system for custom path structures
+
+#### **PlaylistMatcher Class**
+Orchestrates the matching process in 5 steps:
+1. `build_library_cache()` - Build metadata cache
+2. `read_old_playlist()` - Parse playlist file
+3. `find_matches()` - Match entries to library
+4. `write_new_playlist()` - Write corrected playlist
+5. `write_log()` - Write unmatched log with diagnostics
+
 ### 1. Metadata Caching
-- Scans your entire `/Music/` directory
+
+The cache building process is flexible and efficient:
+
+**From Directory (default):**
+- Scans your entire music directory recursively
 - Extracts metadata (title, artist, album, album artist) from each audio file
-- Builds an indexed cache for fast lookups
+- Builds indexed lookups for fast matching
 - Processes album artists in alphabetical order
+- Progress updates every 100 files
+
+**From File Paths (programmatic use):**
+- Accepts a pre-computed list of file paths
+- Useful for integration with other tools or custom workflows
+- Skips directory scanning for faster processing
+
+```python
+# Example: Using custom file paths
+from playlist_matcher import PlaylistMatcher
+
+matcher = PlaylistMatcher(
+    playlist_path='my_playlist.m3u8',
+    music_dir='/Music',
+    output_path='output.m3u8',
+    log_path='unmatched.log'
+)
+
+# Provide your own file list
+file_paths = ['/Music/Artist/Album/song1.flac', '/Music/Artist/Album/song2.flac']
+matcher.process_playlist(file_paths=file_paths)
+```
 
 ### 2. Matching Strategy
-The script tries multiple strategies to find matches (in order):
 
-1. **Exact match**: title + artist + album
-2. **Partial match**: title + artist (ignoring album)
-3. **Album artist match**: title + album artist
-4. **Fuzzy match**: title exact, artist contained in metadata
+The script tries multiple strategies to find matches (in order of priority):
+
+1. **Exact match**: title + artist + album all match
+2. **Fuzzy match with album priority**: Similar title + artist, prioritizes same album
+3. **Partial match**: title + artist (ignoring album)
+4. **Album artist match**: title + album artist instead of artist
+5. **Fuzzy title match**: Title exact, artist contained in metadata
+
+Each strategy provides detailed failure diagnostics when no match is found.
 
 ### 3. Normalization
+
+Text normalization ensures flexible matching:
 - Converts to lowercase
 - Normalizes "feat.", "ft.", "featuring" variations
 - Removes extra whitespace
 - Handles special characters
+- Preserves original metadata in tags while sanitizing filenames
 
 ### 4. Output
-- **foobar.m3u8**: New playlist with corrected paths relative to `/Music/`
-- **unmatched_songs.log**: Detailed log of songs that couldn't be matched
+
+- **foobar.m3u8**: New playlist with corrected paths relative to music directory
+- **unmatched_songs.log**: Detailed log with failure diagnostics for each unmatched song
 
 ## Match Failure Diagnostics
 
-When a song cannot be matched, the script now provides detailed diagnostic information:
+When a song cannot be matched, the script provides detailed diagnostic information:
 
 **Console Output:**
 ```
@@ -162,11 +223,13 @@ Each unmatched song includes:
 - "Title and artist exist separately but not in the same file" - Both exist but in different songs
 - "Title exists but with different artist" - Song title found but by different artist
 - "Artist exists but with different title" - Artist found but different song
+- "Found N file(s) with matching title; No files found with artist 'X'" - Title exists but artist mismatch
 
 This helps identify:
 - Missing files in your library
 - Metadata inconsistencies
 - Spelling differences between playlist and library tags
+- Artist name variations (e.g., "The Beatles" vs "Beatles")
 
 ## Supported Audio Formats
 
@@ -183,6 +246,54 @@ This helps identify:
 - Processes album artists alphabetically as requested
 - Progress updates every 100 files during caching
 - Efficient for large libraries (10,000+ files)
+- Optional file path list for even faster processing
+
+## Testing
+
+### Self-Test with test_playlist_matcher.ipynb
+
+A Jupyter notebook is provided for testing the script with a mock library:
+
+**What it does:**
+1. Parses the first 10 songs from `Favourites.m3u8`
+2. Creates a mock music library with proper directory structure
+3. Generates FLAC files with correct metadata tags
+4. Handles special characters (e.g., `/` in titles) via sanitization
+5. Runs the playlist matcher script
+6. Verifies results and displays statistics
+
+**How to use:**
+```bash
+# Install Jupyter if needed
+pip install jupyter mutagen
+
+# Run the notebook
+jupyter notebook test_playlist_matcher.ipynb
+```
+
+**Test workflow:**
+1. **Setup** - Installs dependencies and imports modules
+2. **Parse Playlist** - Extracts metadata from first 10 songs
+3. **Create Mock Library** - Builds test library with proper structure:
+   ```
+   test_music_library/
+   ├── Artist Name/
+   │   └── Album Name/
+   │       └── 1 - 01 - Title - Artist - Album.flac
+   ```
+4. **Run Matcher** - Tests the script with test data
+5. **Verify Results** - Checks output playlist and unmatched log
+
+**Special Character Handling:**
+The test notebook demonstrates how the script handles problematic characters:
+- Filenames: `/` → `∕` (Unicode division slash)
+- Metadata tags: Original characters preserved
+- Example: "1/2 Lovesong" in metadata, "1∕2 Lovesong" in filename
+
+**Expected Results:**
+- 10/10 songs matched (100% success rate)
+- Corrected paths in `test_output.m3u8`
+- Empty or minimal `test_unmatched.log`
 
 ## Adding Custom Path Formats
 
@@ -220,8 +331,9 @@ python3 playlist_matcher.py --format genre_artist_album
 ### No matches found
 - Check that music directory path is correct (use `--music-dir`)
 - Verify audio files have proper metadata tags
-- Check the unmatched songs log for details
+- Check the unmatched songs log for detailed diagnostics
 - Try a different `--format` if your playlist structure differs
+- Run the test notebook to verify the script works correctly
 
 ### Wrong format detected
 - Use `--list-formats` to see available formats
@@ -232,6 +344,12 @@ python3 playlist_matcher.py --format genre_artist_album
 - First run will be slower due to caching
 - Large libraries (50,000+ files) may take several minutes
 - Progress is logged every 100 files
+- Consider using file path list for faster processing
+
+### Special characters in filenames
+- The script automatically sanitizes problematic characters
+- Metadata tags preserve original characters
+- See test notebook for examples
 
 ### Import errors
 Make sure mutagen is installed:
@@ -239,9 +357,16 @@ Make sure mutagen is installed:
 pip install mutagen
 ```
 
+### Testing issues
+Run the test notebook to verify:
+```bash
+jupyter notebook test_playlist_matcher.ipynb
+```
+
 ## Example Output
 
 ```
+2026-01-22 16:30:00 - INFO - Step 1: Building library cache
 2026-01-22 16:30:00 - INFO - Scanning music library: /Music
 2026-01-22 16:30:05 - INFO - Processing album artist: The Beatles
 2026-01-22 16:30:10 - INFO - Cached 100 files...
@@ -249,9 +374,13 @@ pip install mutagen
 ...
 2026-01-22 16:35:00 - INFO - Cache built: 5000 files indexed
 2026-01-22 16:35:00 - INFO - Album artists found: 250
-2026-01-22 16:35:00 - INFO - Reading playlist: Favourites.m3u8
-2026-01-22 16:35:30 - INFO - Writing new playlist: foobar.m3u8
-2026-01-22 16:35:30 - INFO - Writing unmatched log: unmatched_songs.log
+2026-01-22 16:35:00 - INFO - Step 2: Reading playlist: Favourites.m3u8
+2026-01-22 16:35:00 - INFO - Read 2128 lines from playlist
+2026-01-22 16:35:00 - INFO - Step 3: Finding matches for playlist entries
+2026-01-22 16:35:25 - INFO - Matched: 1050, Unmatched: 14
+2026-01-22 16:35:25 - INFO - Step 4: Writing new playlist: foobar.m3u8
+2026-01-22 16:35:25 - INFO - Wrote 1050 entries to new playlist
+2026-01-22 16:35:25 - INFO - Step 5: Writing unmatched log: unmatched_songs.log
 ================================================================================
 SUMMARY
 ================================================================================
@@ -262,3 +391,63 @@ Success rate: 98.7%
 
 New playlist written to: foobar.m3u8
 Unmatched log written to: unmatched_songs.log
+```
+
+## Advanced Usage
+
+### Programmatic Use
+
+```python
+from playlist_matcher import PlaylistMatcher
+
+# Create matcher instance
+matcher = PlaylistMatcher(
+    playlist_path='my_playlist.m3u8',
+    music_dir='/Music',
+    output_path='output.m3u8',
+    log_path='unmatched.log',
+    path_format='artist_album'
+)
+
+# Option 1: Process with directory scanning (default)
+matcher.process_playlist()
+
+# Option 2: Process with custom file paths
+file_paths = ['/Music/Artist/Album/song.flac', ...]
+matcher.process_playlist(file_paths=file_paths)
+
+# Option 3: Step-by-step processing
+matcher.build_library_cache()
+playlist_lines = matcher.read_old_playlist()
+matched, unmatched = matcher.find_matches(playlist_lines)
+matcher.write_new_playlist(matched)
+matcher.write_log(matched, unmatched)
+```
+
+### Integration with Other Tools
+
+The modular design allows easy integration:
+
+```python
+# Example: Use with custom file discovery
+import glob
+from playlist_matcher import PlaylistMatcher
+
+# Find all FLAC files using custom logic
+file_paths = glob.glob('/Music/**/*.flac', recursive=True)
+
+# Process with pre-computed file list
+matcher = PlaylistMatcher('playlist.m3u8', '/Music', 'output.m3u8', 'log.txt')
+matcher.process_playlist(file_paths=file_paths)
+```
+
+## Files
+
+- `playlist_matcher.py` - Main script
+- `test_playlist_matcher.ipynb` - Test notebook with mock library
+- `README_playlist_matcher.md` - This documentation
+- `example.flac` - Template FLAC file for testing (required for test notebook)
+
+## License
+
+This script is provided as-is for personal use.
