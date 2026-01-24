@@ -404,6 +404,49 @@ class PlaylistMatcher:
         self.cache = MusicLibraryCache(music_dir)
         self.path_parser = PlaylistPathParser(path_format)
 
+    def detect_playlist_format(self, lines: List[str]) -> str:
+        """Detect playlist format (m3u8 or text)
+        
+        Args:
+            lines: Playlist file lines
+            
+        Returns:
+            'm3u8' or 'text'
+        """
+        # Check first few non-empty lines
+        for line in lines[:10]:
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith('#EXTM3U') or line.startswith('#EXTINF'):
+                return 'm3u8'
+        
+        # If no M3U8 markers found, assume simple text format
+        return 'text'
+    
+    def parse_text_entry(self, line: str) -> Optional[Tuple[str, str, str]]:
+        """Parse simple text playlist entry (Artist - Title format)
+        
+        Args:
+            line: Text line in format "Artist - Title"
+            
+        Returns:
+            Tuple of (artist, title, album) or None if parsing fails
+        """
+        line = line.strip()
+        if not line or line.startswith('#'):
+            return None
+        
+        # Split on ' - ' to get artist and title
+        if ' - ' in line:
+            parts = line.split(' - ', 1)
+            artist = parts[0].strip()
+            title = parts[1].strip()
+            album = ''  # No album info in simple text format
+            return artist, title, album
+        
+        return None
+
     def parse_playlist_entry(self, extinf_line: str, path_line: str) -> Optional[Tuple[str, str, str, str]]:
         """Parse EXTINF and path lines to extract metadata"""
         # Parse EXTINF line: #EXTINF:duration,Artist - Title
@@ -476,50 +519,86 @@ class PlaylistMatcher:
             Tuple of (matched_entries, unmatched_entries)
         """
         logger.info("Step 3: Finding matches for playlist entries")
+        
+        # Detect playlist format
+        playlist_format = self.detect_playlist_format(playlist_lines)
+        logger.info(f"Detected playlist format: {playlist_format}")
 
         matched_entries = []
         unmatched_entries = []
 
-        i = 0
-        while i < len(playlist_lines):
-            line = playlist_lines[i]
+        if playlist_format == 'm3u8':
+            # Process M3U8 format
+            i = 0
+            while i < len(playlist_lines):
+                line = playlist_lines[i]
 
-            if line.startswith('#EXTINF:'):
-                if i + 1 < len(playlist_lines):
-                    extinf_line = line
-                    path_line = playlist_lines[i + 1]
+                if line.startswith('#EXTINF:'):
+                    if i + 1 < len(playlist_lines):
+                        extinf_line = line
+                        path_line = playlist_lines[i + 1]
 
-                    # Parse entry
-                    parsed = self.parse_playlist_entry(extinf_line, path_line)
-                    if parsed:
-                        duration, artist, title, album = parsed
+                        # Parse entry
+                        parsed = self.parse_playlist_entry(extinf_line, path_line)
+                        if parsed:
+                            duration, artist, title, album = parsed
 
-                        # Find match in library
-                        matched_path, failure_reason = self.cache.find_match(title, artist, album)
+                            # Find match in library
+                            matched_path, failure_reason = self.cache.find_match(title, artist, album)
 
-                        if matched_path:
-                            # Convert to relative path from music directory
-                            rel_path = Path(matched_path).relative_to(self.music_dir)
-                            matched_entries.append((extinf_line, str(rel_path)))
-                            logger.debug(f"✓ Matched: {artist} - {title}")
-                        else:
-                            # Log detailed failure reason
-                            logger.warning(f"✗ No match: {artist} - {title}")
-                            logger.warning(f"  Reason: {failure_reason}")
+                            if matched_path:
+                                # Convert to relative path from music directory
+                                rel_path = Path(matched_path).relative_to(self.music_dir)
+                                matched_entries.append((extinf_line, str(rel_path)))
+                                logger.debug(f"✓ Matched: {artist} - {title}")
+                            else:
+                                # Log detailed failure reason
+                                logger.warning(f"✗ No match: {artist} - {title}")
+                                logger.warning(f"  Reason: {failure_reason}")
 
-                            unmatched_entries.append({
-                                'artist': artist,
-                                'title': title,
-                                'album': album,
-                                'original_path': path_line,
-                                'failure_reason': failure_reason
-                            })
+                                unmatched_entries.append({
+                                    'artist': artist,
+                                    'title': title,
+                                    'album': album,
+                                    'original_path': path_line,
+                                    'failure_reason': failure_reason
+                                })
 
-                    i += 2  # Skip both lines
+                        i += 2  # Skip both lines
+                    else:
+                        i += 1
                 else:
                     i += 1
-            else:
-                i += 1
+        
+        else:  # text format
+            # Process simple text format (Artist - Title per line)
+            for line in playlist_lines:
+                parsed = self.parse_text_entry(line)
+                if parsed:
+                    artist, title, album = parsed
+                    
+                    # Find match in library
+                    matched_path, failure_reason = self.cache.find_match(title, artist, album)
+                    
+                    if matched_path:
+                        # Convert to relative path from music directory
+                        rel_path = Path(matched_path).relative_to(self.music_dir)
+                        # Create EXTINF line with default duration
+                        extinf_line = f"#EXTINF:-1,{artist} - {title}"
+                        matched_entries.append((extinf_line, str(rel_path)))
+                        logger.debug(f"✓ Matched: {artist} - {title}")
+                    else:
+                        # Log detailed failure reason
+                        logger.warning(f"✗ No match: {artist} - {title}")
+                        logger.warning(f"  Reason: {failure_reason}")
+                        
+                        unmatched_entries.append({
+                            'artist': artist,
+                            'title': title,
+                            'album': album,
+                            'original_path': line,
+                            'failure_reason': failure_reason
+                        })
 
         logger.info(f"Matched: {len(matched_entries)}, Unmatched: {len(unmatched_entries)}")
         return matched_entries, unmatched_entries
