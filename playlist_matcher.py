@@ -396,13 +396,14 @@ class PlaylistMatcher:
     """Match playlist entries to music library"""
 
     def __init__(self, playlist_path: str, music_dir: str, output_path: str, log_path: str,
-                 path_format: str = 'artist_album'):
+                 path_format: str = 'artist_album', path_prefix: str = ''):
         self.playlist_path = Path(playlist_path)
         self.music_dir = Path(music_dir)
         self.output_path = Path(output_path)
         self.log_path = Path(log_path)
         self.cache = MusicLibraryCache(music_dir)
         self.path_parser = PlaylistPathParser(path_format)
+        self.path_prefix = path_prefix
 
     def detect_playlist_format(self, lines: List[str]) -> str:
         """Detect playlist format (m3u8 or text)
@@ -615,7 +616,7 @@ class PlaylistMatcher:
             f.write('#EXTM3U\n')
             for extinf, path in matched_entries:
                 f.write(f'{extinf}\n')
-                f.write(f'{path}\n')
+                f.write(f'{self.path_prefix + path}\n')
 
         logger.info(f"Wrote {len(matched_entries)} entries to new playlist")
 
