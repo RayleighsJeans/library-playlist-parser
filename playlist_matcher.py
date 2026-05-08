@@ -7,6 +7,7 @@ and creates a new foobar.m3u8 playlist with corrected paths.
 
 import os
 import sys
+import shutil
 import re
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
@@ -620,8 +621,40 @@ class PlaylistMatcher:
 
         logger.info(f"Wrote {len(matched_entries)} entries to new playlist")
 
+    def copy_playlist(self, matched_entries: List[Tuple[str, str]], location: str):
+        """Step 6: Copy playlist matched songs to location
+
+        Args:
+            matched_entries: List of (extinf_line, path) tuples
+            location: Destination directory to copy files to
+        """
+        logger.info(f"Step 6: Copying matched songs to: {location}")
+
+        Path(location).mkdir(parents=True, exist_ok=True)
+        
+        N = len(matched_entries) - 1
+        i = 0
+
+        for _, path in matched_entries:
+            message : str = "(" + str(i) + "/" + str(N) + ")"
+
+            source = self.path_prefix + path
+            destination = location + path
+
+            Path(Path(destination).parent).mkdir(parents=True, exist_ok=True)
+            if Path(destination).exists():
+                message += " File already exists, skipping: {destination}"
+            else:
+                message += " Copying: {source} -> {destination}"
+                shutil.copyfile(source, destination)
+                
+            logger.info(message)
+            i += 1
+
+        logger.info(f"Copied {len(matched_entries)} entries to: {location}")
+
     def write_log(self, matched_entries: List[Tuple[str, str]], unmatched_entries: List[Dict]):
-        """Step 5: Write log of unmatched entries
+        """Step 7: Write log of unmatched entries
 
         Args:
             matched_entries: List of matched entries
