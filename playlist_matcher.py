@@ -189,6 +189,16 @@ class MusicLibraryCache:
                             file_count += 1
                             if file_count % 100 == 0:
                                 logger.info(f"Cached {file_count} files...")
+        
+        logger.info(f"Cache built: {file_count} files indexed")
+        logger.info(f"Album artists found: {len(self.album_artist_index)}")
+        
+        # Update cache metadata
+        self.cache_metadata['file_count'] = file_count
+        self.cache_metadata['updated_at'] = datetime.now().isoformat()
+        if self.cache_metadata['created_at'] is None:
+            self.cache_metadata['created_at'] = self.cache_metadata['updated_at']
+
     def _compute_directory_hash(self) -> str:
         """Compute hash of directory structure for cache invalidation"""
         try:
@@ -312,6 +322,7 @@ class MusicLibraryCache:
             
             logger.info(f"Cache loaded successfully: {file_count} files")
             logger.info(f"Cache last updated: {cache_age}")
+        
             return True
             
         except json.JSONDecodeError as e:
@@ -346,15 +357,6 @@ class MusicLibraryCache:
             return False
 
 
-        logger.info(f"Cache built: {file_count} files indexed")
-        logger.info(f"Album artists found: {len(self.album_artist_index)}")
-        
-        # Update cache metadata
-        self.cache_metadata['file_count'] = file_count
-        self.cache_metadata['updated_at'] = datetime.now().isoformat()
-        if self.cache_metadata['created_at'] is None:
-            self.cache_metadata['created_at'] = self.cache_metadata['updated_at']
-
     def build_cache(self, file_paths: Optional[List[str]] = None):
         """Build cache of music files
 
@@ -366,7 +368,7 @@ class MusicLibraryCache:
             self.build_cache_from_paths(file_paths)
         else:
             self.build_cache_from_directory()
-
+        
     def find_match(self, title: str, artist: str, album: str = "") -> Tuple[Optional[str], Optional[str]]:
         """Find matching file in cache based on metadata
 
@@ -431,7 +433,7 @@ class MusicLibraryCache:
 
             # First, try to find similar titles in the matching album
             if title_artist_album_matches:
-                logger.info(f"  Found {len(title_artist_album_matches)} tracks by artist in album '{album}'")
+                logger.info(f"Found {len(title_artist_album_matches)} tracks by artist in album '{album}'")
                 # Use fuzzy string matching on titles
                 best_match = None
                 best_score = 0
@@ -449,11 +451,11 @@ class MusicLibraryCache:
                             best_match = file_key
 
                 if best_match:
-                    logger.info(f"  Partial match found in album (similarity: {best_score:.2f})")
+                    logger.info(f"Partial match found in album (similarity: {best_score:.2f})")
                     return best_match, None
 
             # Second, try to find similar titles by the same artist (any album)
-            logger.info(f"  Searching all tracks by artist '{artist}'")
+            logger.info(f"Searching all tracks by artist '{artist}'")
             best_match = None
             best_score = 0
 
@@ -470,7 +472,7 @@ class MusicLibraryCache:
                         best_match = file_key
 
             if best_match:
-                logger.info(f"  Partial match found by artist (similarity: {best_score:.2f})")
+                logger.info(f"Partial match found by artist (similarity: {best_score:.2f})")
                 return best_match, None
 
         # No match found - generate detailed failure reason
@@ -748,7 +750,7 @@ class PlaylistMatcher:
                             else:
                                 # Log detailed failure reason
                                 logger.warning(f"✗ No match: {artist} - {title}")
-                                logger.warning(f"  Reason: {failure_reason}")
+                                logger.warning(f"Reason: {failure_reason}")
 
                                 unmatched_entries.append({
                                     'artist': artist,
@@ -784,7 +786,7 @@ class PlaylistMatcher:
                     else:
                         # Log detailed failure reason
                         logger.warning(f"✗ No match: {artist} - {title}")
-                        logger.warning(f"  Reason: {failure_reason}")
+                        logger.warning(f"Reason: {failure_reason}")
                         
                         unmatched_entries.append({
                             'artist': artist,
