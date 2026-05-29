@@ -76,6 +76,7 @@ python3 playlist_matcher.py
 python3 playlist_matcher.py --playlist input.m3u8 --music-dir /path/to/music --format albumartist_album
 
 # Cache management
+python3 playlist_matcher.py --update-cache   # Incremental update (new/modified/deleted files)
 python3 playlist_matcher.py --rebuild-cache  # Force rebuild
 python3 playlist_matcher.py --no-cache       # Disable caching
 python3 playlist_matcher.py --clear-cache    # Delete cache file

@@ -355,6 +355,134 @@ class MusicLibraryCache:
         except Exception as e:
             logger.error(f"Failed to delete cache file: {e}")
             return False
+    def update_cache(self, cache_file: Optional[Path] = None) -> bool:
+        """Incrementally update cache by checking for new, modified, or deleted files
+        
+        This method:
+        1. Loads existing cache if available
+        2. Scans music directory for all audio files
+        3. Identifies new files (not in cache)
+        4. Identifies modified files (different mtime)
+        5. Identifies deleted files (in cache but not on disk)
+        6. Updates cache with changes
+        7. Saves updated cache
+        
+        Args:
+            cache_file: Optional path to cache file. If None, uses self.cache_file
+            
+        Returns:
+            True if cache was updated successfully, False otherwise
+        """
+        if cache_file is None:
+            cache_file = self.cache_file
+        
+        logger.info("Starting incremental cache update")
+        
+        # Try to load existing cache
+        cache_loaded = self.load_cache(cache_file)
+        if not cache_loaded:
+            logger.info("No valid cache found, performing full rebuild")
+            self.build_cache()
+            return self.save_cache(cache_file)
+        
+        # Get current file list with modification times
+        audio_extensions = {'.flac', '.mp3', '.m4a', '.ogg', '.opus', '.wma', '.aac'}
+        current_files = {}
+        
+        logger.info(f"Scanning music library for changes: {self.music_dir}")
+        for root, _, files in os.walk(self.music_dir):
+            for file in files:
+                if Path(file).suffix.lower() in audio_extensions:
+                    file_path = Path(root) / file
+                    try:
+                        mtime = file_path.stat().st_mtime
+                        current_files[str(file_path)] = mtime
+                    except OSError:
+                        continue
+        
+        # Identify changes
+        cached_files = set(self.cache.keys())
+        current_file_set = set(current_files.keys())
+        
+        new_files = current_file_set - cached_files
+        deleted_files = cached_files - current_file_set
+        potentially_modified = cached_files & current_file_set
+        
+        # Check for actual modifications (mtime changed)
+        modified_files = set()
+        for file_path in potentially_modified:
+            # Get cached mtime from directory hash computation
+            try:
+                current_mtime = current_files[file_path]
+                file_obj = Path(file_path)
+                # Re-extract metadata if file was modified
+                if file_obj.exists():
+                    cached_mtime = file_obj.stat().st_mtime
+                    # Compare with a small tolerance for filesystem precision
+                    if abs(current_mtime - cached_mtime) > 0.001:
+                        modified_files.add(file_path)
+            except (OSError, KeyError):
+                modified_files.add(file_path)
+        
+        # Log changes
+        total_changes = len(new_files) + len(modified_files) + len(deleted_files)
+        if total_changes == 0:
+            logger.info("No changes detected, cache is up to date")
+            return True
+        
+        logger.info(f"Changes detected:")
+        logger.info(f"  New files: {len(new_files)}")
+        logger.info(f"  Modified files: {len(modified_files)}")
+        logger.info(f"  Deleted files: {len(deleted_files)}")
+        
+        # Remove deleted files from cache
+        for file_path in deleted_files:
+            if file_path in self.cache:
+                metadata = self.cache[file_path]
+                del self.cache[file_path]
+                
+                # Remove from album artist index
+                albumartist_norm = metadata.get('albumartist_norm', '')
+                if albumartist_norm and albumartist_norm in self.album_artist_index:
+                    if file_path in self.album_artist_index[albumartist_norm]:
+                        self.album_artist_index[albumartist_norm].remove(file_path)
+        
+        # Process new and modified files
+        files_to_process = new_files | modified_files
+        processed_count = 0
+        
+        for file_path_str in sorted(files_to_process):
+            file_path = Path(file_path_str)
+            
+            # Remove old entry if it exists (for modified files)
+            if file_path_str in self.cache:
+                old_metadata = self.cache[file_path_str]
+                old_albumartist_norm = old_metadata.get('albumartist_norm', '')
+                if old_albumartist_norm and old_albumartist_norm in self.album_artist_index:
+                    if file_path_str in self.album_artist_index[old_albumartist_norm]:
+                        self.album_artist_index[old_albumartist_norm].remove(file_path_str)
+            
+            # Extract new metadata
+            metadata = self.extract_metadata(file_path)
+            if metadata:
+                self.cache[file_path_str] = metadata
+                
+                # Update album artist index
+                albumartist_norm = metadata['albumartist_norm']
+                if albumartist_norm:
+                    self.album_artist_index[albumartist_norm].append(file_path_str)
+                
+                processed_count += 1
+                if processed_count % 100 == 0:
+                    logger.info(f"Processed {processed_count}/{len(files_to_process)} changed files...")
+        
+        logger.info(f"Cache update complete: processed {processed_count} files")
+        logger.info(f"Total files in cache: {len(self.cache)}")
+        logger.info(f"Album artists: {len(self.album_artist_index)}")
+        
+        # Save updated cache
+        return self.save_cache(cache_file)
+
 
 
     def build_cache(self, file_paths: Optional[List[str]] = None):
@@ -985,6 +1113,11 @@ Examples:
         action='store_true',
         help='Clear cache file and exit'
     )
+    parser.add_argument(
+        '--update-cache',
+        action='store_true',
+        help='Update cache with new/modified/deleted files and exit'
+    )
 
     args = parser.parse_args()
 
@@ -1009,6 +1142,17 @@ Examples:
         if cache.clear_cache():
             logger.info("Cache cleared successfully")
         sys.exit(0)
+    
+    # Handle cache update
+    if args.update_cache:
+        cache_file = args.cache_file if args.cache_file else os.path.join(args.music_dir, MusicLibraryCache.CACHE_FILENAME)
+        cache = MusicLibraryCache(args.music_dir, cache_file)
+        if cache.update_cache():
+            logger.info("Cache updated successfully")
+            sys.exit(0)
+        else:
+            logger.error("Cache update failed")
+            sys.exit(1)
 
     # Create matcher and process
     matcher = PlaylistMatcher(

@@ -146,6 +146,12 @@ The script includes an intelligent caching system to dramatically speed up subse
 ls -lh /Music/.playlist_matcher_cache.json
 ```
 
+**Update cache (incremental):**
+```bash
+# Intelligently updates cache with new/modified/deleted files
+python3 playlist_matcher.py --update-cache
+```
+
 **Force rebuild cache:**
 ```bash
 python3 playlist_matcher.py --rebuild-cache
@@ -166,6 +172,39 @@ python3 playlist_matcher.py --clear-cache
 python3 playlist_matcher.py --cache-file /path/to/custom_cache.json
 ```
 
+### Incremental Updates
+
+The `--update-cache` command provides intelligent incremental updates:
+
+**What it does:**
+1. Loads existing cache
+2. Scans music directory for all audio files
+3. Identifies changes:
+   - **New files**: Not in cache
+   - **Modified files**: Different modification time
+   - **Deleted files**: In cache but not on disk
+4. Updates only changed files
+5. Saves updated cache
+
+**When to use:**
+- After adding new albums to your library
+- After editing metadata tags
+- After reorganizing files
+- Periodically to keep cache fresh
+
+**Example output:**
+```
+2026-05-29 09:00:00 - INFO - Starting incremental cache update
+2026-05-29 09:00:01 - INFO - Cache loaded successfully: 10000 files
+2026-05-29 09:00:02 - INFO - Scanning music library for changes
+2026-05-29 09:00:05 - INFO - Changes detected:
+2026-05-29 09:00:05 - INFO -   New files: 25
+2026-05-29 09:00:05 - INFO -   Modified files: 3
+2026-05-29 09:00:05 - INFO -   Deleted files: 2
+2026-05-29 09:00:06 - INFO - Cache update complete: processed 28 files
+2026-05-29 09:00:06 - INFO - Total files in cache: 10023
+```
+
 ### Performance Impact
 
 **Without Cache (first run):**
@@ -174,6 +213,11 @@ python3 playlist_matcher.py --cache-file /path/to/custom_cache.json
 
 **With Cache (subsequent runs):**
 - Any library size: ~2-5 seconds
+
+**Incremental Update:**
+- Depends on number of changes
+- 100 new files: ~5-10 seconds
+- Much faster than full rebuild
 
 ### Cache File Structure
 
