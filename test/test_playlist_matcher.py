@@ -772,6 +772,77 @@ class TestPlaylistMatcher(unittest.TestCase):
         finally:
             if Path(cache_file).exists():
                 Path(cache_file).unlink()
+    
+    def test_cache_incremental_update(self):
+        """Test incremental cache update with new/modified/deleted files"""
+        import tempfile
+        import time
+        
+        # Create test library first
+        self._create_mock_library(self.test_entries)
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            cache_file = f.name
+        
+        try:
+            # Build initial cache
+            cache = MusicLibraryCache(str(self.music_dir), cache_file)
+            cache.build_cache()
+            cache.save_cache()
+            
+            initial_count = len(cache.cache)
+            self.assertEqual(initial_count, 10)
+            
+            # Simulate changes:
+            # 1. Add a new file
+            new_entry = {
+                'artist': 'Test Artist',
+                'title': 'New Song',
+                'album': 'New Album',
+                'disc': '1',
+                'track': '999',
+                'ext': 'flac',
+                'duration': '180'
+            }
+            new_files = self._create_mock_library([new_entry])
+            
+            # 2. Modify an existing file (touch to change mtime)
+            existing_file = list(self.music_dir.rglob('*.flac'))[0]
+            time.sleep(0.1)  # Ensure different mtime
+            existing_file.touch()
+            
+            # 3. Delete a file
+            file_to_delete = list(self.music_dir.rglob('*.flac'))[1]
+            deleted_path = str(file_to_delete)
+            file_to_delete.unlink()
+            
+            # Perform incremental update
+            cache2 = MusicLibraryCache(str(self.music_dir), cache_file)
+            success = cache2.update_cache()
+            
+            self.assertTrue(success)
+            
+            # Verify results
+            # Should have: initial (10) + new (1) - deleted (1) = 10 files
+            self.assertEqual(len(cache2.cache), 10)
+            
+            # Verify new file was added
+            new_file_path = new_files[0]
+            self.assertIn(new_file_path, cache2.cache)
+            self.assertEqual(cache2.cache[new_file_path]['title'], 'New Song')
+            
+            # Verify deleted file was removed
+            self.assertNotIn(deleted_path, cache2.cache)
+            
+            # Verify cache was saved
+            cache3 = MusicLibraryCache(str(self.music_dir), cache_file)
+            loaded = cache3.load_cache()
+            self.assertTrue(loaded)
+            self.assertEqual(len(cache3.cache), 10)
+            
+        finally:
+            if Path(cache_file).exists():
+                Path(cache_file).unlink()
 
 if __name__ == '__main__':
     unittest.main()
