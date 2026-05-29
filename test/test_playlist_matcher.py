@@ -15,6 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import playlist_matcher as pm
+from playlist_matcher import MusicLibraryCache, PlaylistMatcher
 from mutagen.flac import FLAC
 
 
@@ -531,6 +532,246 @@ class TestPlaylistMatcher(unittest.TestCase):
         
         # Cleanup
         malformed_playlist.unlink()
+
+    def test_cache_save_and_load(self):
+        """Test cache saving and loading functionality"""
+        import tempfile
+        import json
+        
+        # Create test library first
+        self._create_mock_library(self.test_entries)
+        
+        # Create temporary cache file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            cache_file = f.name
+        
+        try:
+            # Build cache and save
+            cache = MusicLibraryCache(str(self.music_dir), cache_file)
+            cache.build_cache()
+            
+            # Verify cache has data
+            self.assertGreater(len(cache.cache), 0)
+            original_count = len(cache.cache)
+            
+            # Save cache
+            success = cache.save_cache()
+            self.assertTrue(success)
+            self.assertTrue(Path(cache_file).exists())
+            
+            # Verify cache file structure
+            with open(cache_file, 'r') as f:
+                cache_data = json.load(f)
+            
+            self.assertIn('metadata', cache_data)
+            self.assertIn('cache', cache_data)
+            self.assertIn('album_artist_index', cache_data)
+            self.assertEqual(cache_data['metadata']['version'], MusicLibraryCache.CACHE_VERSION)
+            self.assertEqual(cache_data['metadata']['file_count'], original_count)
+            
+            # Create new cache instance and load
+            cache2 = MusicLibraryCache(str(self.music_dir), cache_file)
+            loaded = cache2.load_cache()
+            
+            self.assertTrue(loaded)
+            self.assertEqual(len(cache2.cache), original_count)
+            self.assertEqual(len(cache2.album_artist_index), len(cache.album_artist_index))
+            
+        finally:
+            # Cleanup
+            if Path(cache_file).exists():
+                Path(cache_file).unlink()
+    
+    def test_cache_version_mismatch(self):
+        """Test cache version validation"""
+        import tempfile
+        import json
+        
+        # Create test library first
+        self._create_mock_library(self.test_entries)
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            cache_file = f.name
+        
+        try:
+            # Create cache with wrong version
+            cache_data = {
+                'metadata': {
+                    'version': '0.0.0',  # Wrong version
+                    'music_dir': str(self.music_dir),
+                    'file_count': 0
+                },
+                'cache': {},
+                'album_artist_index': {}
+            }
+            
+            with open(cache_file, 'w') as f:
+                json.dump(cache_data, f)
+            
+            # Try to load cache
+            cache = MusicLibraryCache(str(self.music_dir), cache_file)
+            loaded = cache.load_cache()
+            
+            # Should fail due to version mismatch
+            self.assertFalse(loaded)
+            
+        finally:
+            if Path(cache_file).exists():
+                Path(cache_file).unlink()
+    
+    def test_cache_directory_change_detection(self):
+        """Test cache invalidation when directory changes"""
+        import tempfile
+        import json
+        import time
+        
+        # Create test library first
+        self._create_mock_library(self.test_entries)
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            cache_file = f.name
+        
+        try:
+            # Build and save cache
+            cache = MusicLibraryCache(str(self.music_dir), cache_file)
+            cache.build_cache()
+            cache.save_cache()
+            
+            # Load cache - should succeed
+            cache2 = MusicLibraryCache(str(self.music_dir), cache_file)
+            loaded = cache2.load_cache()
+            self.assertTrue(loaded)
+            
+            # Modify a file in the test library
+            test_file = list(self.music_dir.rglob('*.flac'))[0]
+            time.sleep(0.1)  # Ensure different mtime
+            test_file.touch()
+            
+            # Try to load cache again - should fail due to directory hash change
+            cache3 = MusicLibraryCache(str(self.music_dir), cache_file)
+            loaded = cache3.load_cache()
+            self.assertFalse(loaded)
+            
+        finally:
+            if Path(cache_file).exists():
+                Path(cache_file).unlink()
+    
+    def test_cache_clear(self):
+        """Test cache file deletion"""
+        import tempfile
+        
+        # Create test library first
+        self._create_mock_library(self.test_entries)
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            cache_file = f.name
+        
+        try:
+            # Create and save cache
+            cache = MusicLibraryCache(str(self.music_dir), cache_file)
+            cache.build_cache()
+            cache.save_cache()
+            
+            self.assertTrue(Path(cache_file).exists())
+            
+            # Clear cache
+            success = cache.clear_cache()
+            self.assertTrue(success)
+            self.assertFalse(Path(cache_file).exists())
+            
+            # Try to clear again - should return False
+            success = cache.clear_cache()
+            self.assertFalse(success)
+            
+        finally:
+            if Path(cache_file).exists():
+                Path(cache_file).unlink()
+    
+    def test_playlist_matcher_with_cache(self):
+        """Test PlaylistMatcher with cache enabled"""
+        import tempfile
+        
+        # Create test library and playlist first
+        self._create_mock_library(self.test_entries)
+        self._create_m3u8_playlist(self.test_entries, self.test_playlist)
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            cache_file = f.name
+        
+        try:
+            # First run - build cache
+            matcher1 = PlaylistMatcher(
+                str(self.test_playlist),
+                str(self.music_dir),
+                str(self.output_playlist),
+                str(self.output_log),
+                cache_file=cache_file,
+                use_cache=True
+            )
+            matcher1.process_playlist()
+            
+            # Verify cache file was created
+            self.assertTrue(Path(cache_file).exists())
+            
+            # Second run - should load from cache
+            matcher2 = PlaylistMatcher(
+                str(self.test_playlist),
+                str(self.music_dir),
+                str(self.output_playlist),
+                str(self.output_log),
+                cache_file=cache_file,
+                use_cache=True
+            )
+            matcher2.process_playlist()
+            
+            # Both should produce same results
+            self.assertTrue(self.output_playlist.exists())
+            
+        finally:
+            if Path(cache_file).exists():
+                Path(cache_file).unlink()
+    
+    def test_playlist_matcher_force_rebuild(self):
+        """Test PlaylistMatcher with force rebuild"""
+        import tempfile
+        
+        # Create test library and playlist first
+        self._create_mock_library(self.test_entries)
+        self._create_m3u8_playlist(self.test_entries, self.test_playlist)
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            cache_file = f.name
+        
+        try:
+            # Create initial cache
+            matcher1 = PlaylistMatcher(
+                str(self.test_playlist),
+                str(self.music_dir),
+                str(self.output_playlist),
+                str(self.output_log),
+                cache_file=cache_file,
+                use_cache=True
+            )
+            matcher1.process_playlist()
+            
+            # Force rebuild
+            matcher2 = PlaylistMatcher(
+                str(self.test_playlist),
+                str(self.music_dir),
+                str(self.output_playlist),
+                str(self.output_log),
+                cache_file=cache_file,
+                use_cache=True,
+                force_rebuild=True
+            )
+            matcher2.process_playlist()
+            
+            # Should still work
+            self.assertTrue(self.output_playlist.exists())
+            
+        finally:
+            if Path(cache_file).exists():
+                Path(cache_file).unlink()
 
 if __name__ == '__main__':
     unittest.main()
