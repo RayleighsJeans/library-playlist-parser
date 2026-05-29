@@ -389,9 +389,149 @@ class TestPlaylistMatcher(unittest.TestCase):
         
         self.assertEqual(m3u8_format, 'm3u8', "Should detect M3U8 format")
         self.assertEqual(text_format, 'text', "Should detect text format")
-
+    
+    def test_advanced_matching_strategies(self):
+        """Test advanced matching strategies (album artist, fuzzy, similarity)"""
+        # Create mock library
+        created_files = self._create_mock_library(self.test_entries)
+        
+        # Create cache
+        cache = pm.MusicLibraryCache(str(self.music_dir))
+        cache.build_cache()
+        
+        # Test Strategy 3: Album artist matching
+        # Search with artist that matches albumartist
+        matched_path, reason = cache.find_match(
+            "1/2 Lovesong",
+            "Die Ärzte",  # This is the albumartist
+            "13"
+        )
+        self.assertIsNotNone(matched_path, "Should match using album artist")
+        
+        # Test Strategy 4: Fuzzy matching (substring)
+        # Search with partial artist name
+        matched_path, reason = cache.find_match(
+            "(Can't Get My) Head Around You",
+            "Offspring",  # Partial artist name
+            ""
+        )
+        self.assertIsNotNone(matched_path, "Should match with substring artist")
+        
+        # Test unmatched song with detailed failure reason
+        matched_path, reason = cache.find_match(
+            "Nonexistent Song",
+            "Nonexistent Artist",
+            "Nonexistent Album"
+        )
+        self.assertIsNone(matched_path, "Should not match nonexistent song")
+        self.assertIsNotNone(reason, "Should provide failure reason")
+        self.assertIn("No files found with title", reason)
+    
+    def test_build_cache_from_paths(self):
+        """Test building cache from file path list"""
+        # Create mock library
+        created_files = self._create_mock_library(self.test_entries)
+        
+        # Build cache from file paths
+        cache = pm.MusicLibraryCache(str(self.music_dir))
+        cache.build_cache(file_paths=created_files)
+        
+        # Verify cache was built
+        self.assertEqual(len(cache.cache), 10, "Should cache all 10 files")
+        self.assertEqual(len(cache.album_artist_index), 10, "Should index 10 album artists")
+        
+        # Test with non-existent file in list
+        fake_files = created_files + ['/nonexistent/file.flac']
+        cache2 = pm.MusicLibraryCache(str(self.music_dir))
+        cache2.build_cache(file_paths=fake_files)
+        
+        # Should still cache the valid files
+        self.assertEqual(len(cache2.cache), 10, "Should cache only valid files")
+    
+    def test_error_handling(self):
+        """Test error handling for invalid inputs"""
+        # Test with non-existent music directory
+        cache = pm.MusicLibraryCache('/nonexistent/directory')
+        cache.build_cache()
+        
+        self.assertEqual(len(cache.cache), 0, "Should have empty cache for invalid directory")
+        
+        # Test with invalid playlist file
+        matcher = pm.PlaylistMatcher(
+            '/nonexistent/playlist.m3u8',
+            str(self.music_dir),
+            str(self.output_playlist),
+            str(self.output_log)
+        )
+        
+        lines = matcher.read_old_playlist()
+        self.assertEqual(len(lines), 0, "Should return empty list for nonexistent playlist")
+    
+    def test_invalid_parser_format(self):
+        """Test parser with invalid format name"""
+        with self.assertRaises(ValueError):
+            pm.PlaylistPathParser('invalid_format')
+    
+    def test_empty_playlist(self):
+        """Test handling of empty playlist"""
+        # Create empty playlist
+        empty_playlist = self.test_dir / 'empty.m3u8'
+        with open(empty_playlist, 'w', encoding='utf-8') as f:
+            f.write('#EXTM3U\n')
+        
+        # Create mock library
+        self._create_mock_library(self.test_entries)
+        
+        # Run matcher
+        matcher = pm.PlaylistMatcher(
+            str(empty_playlist),
+            str(self.music_dir),
+            str(self.output_playlist),
+            str(self.output_log)
+        )
+        matcher.process_playlist()
+        
+        # Verify output
+        with open(self.output_playlist, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        self.assertEqual(content.count('#EXTINF'), 0, "Should have no entries")
+        
+        # Cleanup
+        empty_playlist.unlink()
+    
+    def test_malformed_playlist_entries(self):
+        """Test handling of malformed playlist entries"""
+        # Create playlist with malformed entries
+        malformed_playlist = self.test_dir / 'malformed.m3u8'
+        with open(malformed_playlist, 'w', encoding='utf-8') as f:
+            f.write('#EXTM3U\n')
+            f.write('#EXTINF:invalid,No Separator\n')  # Missing ' - '
+            f.write('path/to/file.flac\n')
+            f.write('#EXTINF:123,Artist - Title\n')
+            f.write('valid/path.flac\n')
+        
+        # Create mock library
+        self._create_mock_library(self.test_entries)
+        
+        # Run matcher
+        matcher = pm.PlaylistMatcher(
+            str(malformed_playlist),
+            str(self.music_dir),
+            str(self.output_playlist),
+            str(self.output_log)
+        )
+        
+        lines = matcher.read_old_playlist()
+        matched, unmatched = matcher.find_matches(lines)
+        
+        # Should handle malformed entries gracefully
+        self.assertIsInstance(matched, list)
+        self.assertIsInstance(unmatched, list)
+        
+        # Cleanup
+        malformed_playlist.unlink()
 
 if __name__ == '__main__':
     unittest.main()
 
-# Made with Bob

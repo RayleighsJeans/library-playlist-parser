@@ -52,7 +52,7 @@ Python script for matching playlist entries to music library files using metadat
 # Install dependencies
 pip install mutagen
 
-# Run all unit tests
+# Run all unit tests (11 tests)
 python3 -m unittest test.test_playlist_matcher -v
 
 # Run specific test
@@ -61,8 +61,10 @@ python3 -m unittest test.test_playlist_matcher.TestPlaylistMatcher.test_m3u8_pla
 # With pytest (if installed)
 pytest test/ -v
 
-# Legacy: Run test notebook
-jupyter notebook test_playlist_matcher.ipynb
+# Run with coverage analysis
+python3 -m coverage run -m unittest test.test_playlist_matcher
+python3 -m coverage report -m
+# Current coverage: 73% (playlist_matcher.py), 82% (total project)
 ```
 
 ## CLI Usage
