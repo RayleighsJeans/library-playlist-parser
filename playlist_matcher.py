@@ -928,20 +928,71 @@ class PlaylistMatcher:
         return matched_entries, unmatched_entries
 
     def write_new_playlist(self, matched_entries: List[Tuple[str, str]]):
-        """Step 4: Write new playlist with corrected paths
+        """Step 4: Write new playlist with corrected paths, removing metadata-based duplicates
 
         Args:
             matched_entries: List of (extinf_line, path) tuples
         """
         logger.info(f"Step 4: Writing new playlist: {self.output_path}")
-
+        
+        # Remove duplicates based on metadata (artist + title)
+        seen_tracks = set()
+        unique_entries = []
+        duplicates_removed = 0
+        
+        for extinf, path in matched_entries:
+            # Extract metadata from EXTINF line
+            # Format: #EXTINF:duration,Artist - Title
+            metadata_key = None
+            
+            if extinf.startswith('#EXTINF:'):
+                # Parse EXTINF line
+                parts = extinf.split(',', 1)
+                if len(parts) == 2:
+                    metadata_str = parts[1].strip()
+                    
+                    # Try to get metadata from the file itself for more accuracy
+                    full_path = self.path_prefix + path
+                    if os.path.exists(full_path):
+                        try:
+                            file_metadata = self.cache.extract_metadata(Path(full_path))
+                            if file_metadata:
+                                # Create normalized key from actual file metadata
+                                artist_norm = self.cache.normalize_string(file_metadata.get('artist', ''))
+                                title_norm = self.cache.normalize_string(file_metadata.get('title', ''))
+                                if artist_norm and title_norm:
+                                    metadata_key = f"{artist_norm}|||{title_norm}"
+                        except Exception as e:
+                            logger.debug(f"Could not read metadata from {path}: {e}")
+                    
+                    # Fallback to EXTINF line parsing if file metadata not available
+                    if not metadata_key and ' - ' in metadata_str:
+                        artist, title = metadata_str.split(' - ', 1)
+                        artist_norm = self.cache.normalize_string(artist)
+                        title_norm = self.cache.normalize_string(title)
+                        if artist_norm and title_norm:
+                            metadata_key = f"{artist_norm}|||{title_norm}"
+            
+            # Check for duplicate
+            if metadata_key:
+                if metadata_key in seen_tracks:
+                    duplicates_removed += 1
+                    logger.debug(f"Removing duplicate: {metadata_key}")
+                    continue
+                seen_tracks.add(metadata_key)
+            
+            unique_entries.append((extinf, path))
+        
+        # Write unique entries to playlist
         with open(self.output_path, 'w', encoding='utf-8') as f:
             f.write('#EXTM3U\n')
-            for extinf, path in matched_entries:
+            for extinf, path in unique_entries:
                 f.write(f'{extinf}\n')
                 f.write(f'{self.path_prefix + path}\n')
 
-        logger.info(f"Wrote {len(matched_entries)} entries to new playlist")
+        logger.info(f"Wrote {len(unique_entries)} unique entries to new playlist")
+        if duplicates_removed > 0:
+            logger.info(f"Removed {duplicates_removed} duplicate tracks based on metadata (artist + title)")
 
     def copy_playlist(self, matched_entries: List[Tuple[str, str]], location: str):
         """Step 6: Copy playlist matched songs to location
