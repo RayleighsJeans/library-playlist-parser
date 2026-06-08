@@ -1,0 +1,6 @@
+{
+  "soundcloud": {
+    "client_id": "example_client_id",
+    "oauth_token": "example_oauth_token"
+  }
+}
