@@ -581,3 +581,276 @@ matcher.process_playlist(file_paths=file_paths)
 ## License
 
 This script is provided as-is for personal use.
+
+# SoundCloud Music Tagger
+
+Automatically tags music files in the `soundcloud/` directory using the `library.txt` reference and multiple online music databases with intelligent fallback.
+
+## Features
+
+- **Smart Matching**: Fuzzy matching algorithm to match ambiguous filenames with library entries
+- **Multi-Source Metadata**: Cascading search across three databases:
+  1. **MusicBrainz** (primary) - Comprehensive music database
+  2. **Last.fm** (fallback) - Community-driven metadata
+  3. **Discogs** (final fallback) - Extensive release database
+- **Comprehensive Metadata**: Retrieves and tags:
+  - Artist name
+  - Track title
+  - Album name
+  - Release year
+  - Genre tags
+- **Cover Art**: Downloads and embeds album artwork from MusicBrainz Cover Art Archive
+- **File Organization**: Successfully tagged files are **copied** to `soundcloud/sorted/` (originals preserved)
+- **Existing Tag Reading**: Reads and displays current metadata before updating
+- **Filename Parsing Fallback**: Extracts artist/title from filename when no library match exists
+- **Supports Multiple Formats**: M4A and MP3 files
+- **Artist as Album Artist**: Sets artist as album artist for proper library organization
+
+## Installation
+
+Required Python packages:
+```bash
+pip install mutagen requests
+```
+
+## Usage
+
+### Basic Usage
+Process all files in the soundcloud directory:
+```bash
+python3 soundcloud_tagger.py
+```
+
+### Dry Run
+See what would be done without making changes:
+```bash
+python3 soundcloud_tagger.py --dry-run
+```
+
+### Process Limited Number of Files
+Test with just a few files first:
+```bash
+python3 soundcloud_tagger.py --limit 10
+```
+
+### Custom Paths
+```bash
+python3 soundcloud_tagger.py \
+  --library soundcloud/library.txt \
+  --input-dir soundcloud \
+  --output-dir soundcloud/sorted
+```
+
+## How It Works
+
+1. **Library Parsing**: Reads `library.txt` and extracts artist/title pairs from various formats
+2. **Existing Tag Reading**: Checks and displays current metadata in the file
+3. **File Matching**: For each music file, finds the best matching library entry using fuzzy string matching
+4. **Filename Parsing Fallback**: If no library match, parses "Artist - Title" from filename
+5. **Multi-Source Metadata Retrieval**:
+   - Tries MusicBrainz first (most comprehensive)
+   - Falls back to Last.fm if MusicBrainz has no results
+   - Falls back to Discogs if Last.fm has no results
+   - Uses library/filename data if all online sources fail
+6. **Cover Art Download**: Fetches album artwork from MusicBrainz Cover Art Archive
+7. **Tagging**: Applies all metadata tags to the music file
+8. **Organization**: **Copies** successfully tagged files to `soundcloud/sorted/` (originals remain untouched)
+
+## Matching Algorithm
+
+The script uses a sophisticated matching algorithm that:
+- Cleans filenames by removing special characters and numbers
+- Calculates similarity scores between filenames and library entries
+- Boosts scores when artist or title names appear in the filename
+- Requires minimum 40% confidence to proceed with tagging
+- Handles various filename patterns and formats
+
+## API Rate Limiting
+
+The script respects API rate limits for all services:
+- **MusicBrainz**: 1 request per second (strictly enforced)
+- **Last.fm**: ~3 requests per second
+- **Discogs**: 1 request per second
+
+This ensures reliable operation without hitting rate limits.
+
+## Output
+
+For each file, you'll see:
+- 📋 Existing tags (if present)
+- 📚 Library match with confidence score (or filename parsing)
+- 🔍 Database search progress (MusicBrainz → Last.fm → Discogs)
+- ✓ Which database provided the metadata
+- 🖼️ Cover art status
+- ✅ Success/failure status
+
+Example output:
+```
+[1/479]
+Processing: Moon Boots - No One [77831355].m4a
+  📋 Existing tags: Moon Boots - No One
+  📚 Library match: Moon Boots - No One (confidence: 0.95)
+  🔍 Searching MusicBrainz...
+  🔍 Searching Last.fm...
+  ✓ Last.fm: First Landing
+  🖼️  Cover art downloaded
+  ✅ Tagged and copied to soundcloud/sorted
+```
+
+## Metadata Tags Applied
+
+### M4A Files
+- `©nam`: Title
+- `©ART`: Artist
+- `aART`: Album Artist (same as artist)
+- `©alb`: Album
+- `©day`: Year
+- `©gen`: Genre
+- `covr`: Cover art
+
+### MP3 Files
+- `TIT2`: Title
+- `TPE1`: Artist
+- `TPE2`: Album Artist (same as artist)
+- `TALB`: Album
+- `TDRC`: Year
+- `APIC`: Cover art
+
+## Notes
+
+- **Original files are preserved** - files are copied, not moved
+- Original filenames are preserved (not renamed)
+- Files are only copied after successful tagging
+- Unmatched files remain in the original directory
+- The script will not modify files already in `soundcloud/sorted/`
+- **Multi-source fallback** ensures maximum metadata coverage:
+  - MusicBrainz: Best for official releases
+  - Last.fm: Good for popular tracks and remixes
+  - Discogs: Excellent for vinyl releases and obscure tracks
+- When all online sources fail, library/filename data is used as fallback
+
+## Troubleshooting
+
+**No library match found**: The filename is too different from library entries. Check if the track exists in `library.txt`.
+
+**No online metadata found**: MusicBrainz doesn't have this recording. The file will still be tagged with library data (artist/title only).
+
+**Failed to apply tags**: File format issue or file is corrupted. Check file integrity.
+
+## Statistics
+
+After processing, you'll see a summary:
+```
+📊 Summary:
+   ✅ Successfully tagged: 450
+   ❌ Failed: 29
+   📁 Output directory: soundcloud/sorted
+
+## SoundCloud Authentication Setup
+
+To enable SoundCloud artwork fallback, you need to provide your SoundCloud API credentials.
+
+### Setup Instructions
+
+#### 1. Get SoundCloud Credentials
+
+You need two pieces of information:
+- **Client ID**: Your SoundCloud application client ID
+- **OAuth Token** (optional): For authenticated requests
+
+##### Option A: Find Your Client ID from Browser
+1. Go to [SoundCloud](https://soundcloud.com)
+2. Open browser Developer Tools (F12)
+3. Go to Network tab
+4. Play any track
+5. Look for API requests to `api-v2.soundcloud.com`
+6. Find the `client_id` parameter in the request URL
+
+##### Option B: Create a SoundCloud App
+1. Go to [SoundCloud Developers](https://developers.soundcloud.com/)
+2. Register a new application
+3. Copy your Client ID from the app settings
+
+#### 2. Create Configuration File
+
+Create a file named `soundcloud_config.json` in the project directory:
+
+```json
+{
+  "soundcloud": {
+    "client_id": "YOUR_CLIENT_ID_HERE",
+    "oauth_token": "YOUR_OAUTH_TOKEN_HERE"
+  }
+}
+```
+
+**Alternative location**: `~/.soundcloud_config.json` (in your home directory)
+
+#### 3. Secure Your Credentials
+
+**IMPORTANT**: Never commit your credentials to version control!
+
+Add to `.gitignore`:
+```
+soundcloud_config.json
+```
+
+### How It Works
+
+When configured, the tagger will:
+
+1. Try **MusicBrainz Cover Art Archive** first (no auth needed)
+2. Try **Last.fm artwork** second (no auth needed)
+3. Try **SoundCloud artwork** as final fallback (requires auth)
+
+The SoundCloud API will search for tracks matching the artist and title, then download the highest quality artwork available.
+
+### Testing
+
+Test your configuration:
+
+```bash
+python3 -c "
+from soundcloud_tagger import SoundCloudAPI
+
+sc = SoundCloudAPI()
+if sc.client_id:
+    print('✓ SoundCloud credentials loaded')
+    print(f'  Client ID: {sc.client_id[:10]}...')
+else:
+    print('✗ No SoundCloud credentials found')
+"
+```
+
+### Troubleshooting
+
+#### "No SoundCloud credentials found"
+- Check that `soundcloud_config.json` exists in the project directory or `~/.soundcloud_config.json`
+- Verify the JSON syntax is correct
+- Ensure the file has the correct structure with `soundcloud.client_id`
+
+#### "SoundCloud API error: 401"
+- Your client ID may be invalid or expired
+- Try getting a fresh client ID from the browser method
+
+### "SoundCloud API error: 429"
+- You've hit the rate limit
+- The script includes rate limiting (0.5s between requests)
+- Wait a few minutes and try again
+
+### Privacy & Security
+
+- Your credentials are stored locally only
+- They are never transmitted except to SoundCloud's official API
+- The script only requests public track information and artwork
+- No personal data or listening history is accessed
+
+### Optional: OAuth Token
+
+For higher rate limits and access to private tracks (if needed):
+
+1. Use the SoundCloud OAuth flow to get a token
+2. Add it to your config file under `oauth_token`
+3. The script will automatically use it for authenticated requests
+
+**Note**: OAuth token is optional. The client ID alone is sufficient for public track artwork.
