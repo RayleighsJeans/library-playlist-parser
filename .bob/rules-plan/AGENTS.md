@@ -38,3 +38,8 @@
 - Adding formats at runtime affects all parser instances
 - Regex patterns must use non-greedy matching (`.+?`)
 - Greedy matching will consume delimiters and break parsing
+
+### Cache File Atomic Writes
+- `save_cache()` writes to `.tmp` file first, then uses `replace()` for atomic rename
+- Prevents corruption if process interrupted during write
+- This architectural decision ensures cache integrity across all operations

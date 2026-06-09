@@ -29,3 +29,19 @@
 - Filenames use Unicode division slash `∕` (U+2215) instead of `/`
 - Metadata tags preserve original characters
 - This pattern must be maintained for cross-platform compatibility
+
+### Cache File Atomic Writes
+- `save_cache()` writes to `.tmp` file first, then uses `replace()` for atomic rename
+- Prevents corruption if process interrupted during write
+- Critical for cache integrity
+
+### Test Suite Requirements
+- Tests require `example.flac` template file in `test/` directory
+- Test creates mock library at `test/test_music_library/` (gitignored)
+- Tests use first 10 songs from `Favourites.m3u8` (must exist)
+
+## Running Single Test
+```bash
+# Run specific test method
+python3 -m unittest test.test_playlist_matcher.TestPlaylistMatcher.test_m3u8_playlist_matching -v
+```

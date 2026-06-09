@@ -1,19 +1,27 @@
+# Pycache
 __pycache__/
 *.pyc
 env/
 
+# Tests
 test_music_library/
 test_music_library/*
 test_music_library/**/*
 
+# TMP/Binary files
 *.log
 *.m3u8
 *.m3u
 *.txt
+*.csv
 
-soundcloud
+# SoundCloud directories
+soundcloud/raw/*
+soundcloud/sorted/*
+soundcloud/tagged/*
+soundcloud/covers/*
 
-# SoundCloud credentials (NEVER commit these!)
+# SoundCloud credentials
 soundcloud_config.json
 
 # Progress tracking
