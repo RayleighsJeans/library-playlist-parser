@@ -2,11 +2,24 @@
 __pycache__/
 *.pyc
 env/
+venv/
+.venv/
 
 # Tests
 test_music_library/
 test_music_library/*
 test_music_library/**/*
+
+# Coverage reports
+.coverage
+.coverage.*
+htmlcov/
+test/htmlcov/
+test/.coverage
+test/coverage.xml
+.pytest_cache/
+*.cover
+*.coveragerc
 
 # TMP/Binary files
 *.log
@@ -21,8 +34,24 @@ soundcloud/sorted/*
 soundcloud/tagged/*
 soundcloud/covers/*
 
+# Keep example files
+!soundcloud/covers/.gitkeep
+!test/*.txt
+!test/*.csv
+
 # SoundCloud credentials
 soundcloud_config.json
 
 # Progress tracking
 soundcloud_progress.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
