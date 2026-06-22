@@ -39,11 +39,16 @@ soundcloud/covers/*
 !test/*.txt
 !test/*.csv
 
-# SoundCloud credentials
+# API credentials
 soundcloud_config.json
+streaming_config.json
 
 # Progress tracking
 soundcloud_progress.json
+
+# Streaming search results
+streaming_results.txt
+streaming_search.log
 
 # IDE
 .vscode/

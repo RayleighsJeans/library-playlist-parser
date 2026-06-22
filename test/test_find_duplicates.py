@@ -379,5 +379,3 @@ def run_tests():
 if __name__ == '__main__':
     success = run_tests()
     sys.exit(0 if success else 1)
-
-# Made with Bob

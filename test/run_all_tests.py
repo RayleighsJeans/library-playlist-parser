@@ -133,5 +133,3 @@ if __name__ == '__main__':
 
     success = run_all_tests(with_coverage=with_coverage)
     sys.exit(0 if success else 1)
-
-# Made with Bob
