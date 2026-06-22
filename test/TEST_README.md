@@ -114,11 +114,11 @@ class TestNewFeature(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.test_data = "example"
-    
+
     def tearDown(self):
         """Clean up after tests."""
         pass
-    
+
     def test_basic_functionality(self):
         """Test basic feature behavior."""
         result = my_function(self.test_data)

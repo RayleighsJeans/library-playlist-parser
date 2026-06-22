@@ -48,11 +48,11 @@ except ImportError:
 
 class AudioFingerprinter:
     """Generate audio fingerprints for duplicate detection."""
-    
+
     def __init__(self):
         self.method = self._determine_method()
         print(f"Using fingerprint method: {self.method}")
-    
+
     def _determine_method(self) -> str:
         """Determine which fingerprinting method to use based on available libraries."""
         if ACOUSTID_AVAILABLE:
@@ -63,7 +63,7 @@ class AudioFingerprinter:
             return "duration_only"
         else:
             return "none"
-    
+
     def get_fingerprint(self, filepath: str) -> Optional[Tuple[str, float]]:
         """
         Get audio fingerprint and duration.
@@ -77,7 +77,7 @@ class AudioFingerprinter:
             return self._fingerprint_duration(filepath)
         else:
             return None
-    
+
     def _fingerprint_acoustid(self, filepath: str) -> Optional[Tuple[str, float]]:
         """Use Chromaprint/AcoustID for high-quality fingerprinting."""
         try:
@@ -88,7 +88,7 @@ class AudioFingerprinter:
         except Exception as e:
             print(f"  ⚠️  AcoustID error for {Path(filepath).name}: {e}")
             return None
-    
+
     def _fingerprint_waveform(self, filepath: str) -> Optional[Tuple[str, float]]:
         """
         Fallback: Compare first 15 seconds of audio waveform.
@@ -98,26 +98,26 @@ class AudioFingerprinter:
             # Load audio file
             audio = AudioSegment.from_file(filepath)
             duration = len(audio) / 1000.0  # Convert to seconds
-            
+
             # Take first 15 seconds
             sample_duration = min(15000, len(audio))  # 15 seconds in milliseconds
             sample = audio[:sample_duration]
-            
+
             # Convert to mono and resample to 8kHz for comparison
             sample = sample.set_channels(1)
             sample = sample.set_frame_rate(8000)
-            
+
             # Get raw audio data
             raw_data = sample.raw_data
-            
+
             # Create hash of the waveform
             waveform_hash = hashlib.md5(raw_data).hexdigest()
-            
+
             return (waveform_hash, duration)
         except Exception as e:
             print(f"  ⚠️  Waveform error for {Path(filepath).name}: {e}")
             return None
-    
+
     def _fingerprint_duration(self, filepath: str) -> Optional[Tuple[str, float]]:
         """
         Last resort: Use only duration for grouping.
@@ -137,29 +137,29 @@ class AudioFingerprinter:
 
 class DuplicateFinder:
     """Find duplicate audio files and manage originals."""
-    
+
     def __init__(self, input_dir: str, output_dir: str):
         self.input_dir = Path(input_dir)
         self.output_dir = Path(output_dir)
         self.fingerprinter = AudioFingerprinter()
-        
+
         # Storage for analysis
         self.fingerprints: Dict[str, List[Dict]] = defaultdict(list)
         self.duplicates: List[Tuple[str, List[str]]] = []  # (original, [duplicates])
-    
+
     def scan_files(self) -> List[Path]:
         """Scan input directory for audio files."""
         audio_extensions = {'.mp3', '.m4a', '.flac', '.ogg', '.wav', '.aac'}
         files = []
-        
+
         for ext in audio_extensions:
             files.extend(self.input_dir.glob(f'*{ext}'))
-        
+
         # Exclude already sorted files
         files = [f for f in files if 'sorted' not in str(f)]
-        
+
         return sorted(files)
-    
+
     def analyze_file(self, filepath: Path) -> Optional[Dict]:
         """Analyze a single file and return its metadata."""
         try:
@@ -167,12 +167,12 @@ class DuplicateFinder:
             result = self.fingerprinter.get_fingerprint(str(filepath))
             if not result:
                 return None
-            
+
             fingerprint, duration = result
-            
+
             # Get file size and bitrate
             file_size = filepath.stat().st_size
-            
+
             bitrate = None
             if MUTAGEN_AVAILABLE:
                 try:
@@ -181,7 +181,7 @@ class DuplicateFinder:
                         bitrate = getattr(audio.info, 'bitrate', None)
                 except:
                     pass
-            
+
             return {
                 'path': filepath,
                 'filename': filepath.name,
@@ -193,27 +193,27 @@ class DuplicateFinder:
         except Exception as e:
             print(f"  ❌ Error analyzing {filepath.name}: {e}")
             return None
-    
+
     def find_duplicates(self):
         """Scan all files and identify duplicates."""
         print(f"\n🔍 Scanning {self.input_dir} for audio files...")
         files = self.scan_files()
         print(f"   Found {len(files)} audio files\n")
-        
+
         if not files:
             print("No audio files found!")
             return
-        
+
         # Analyze all files
         print("📊 Analyzing files...")
         for i, filepath in enumerate(files, 1):
             print(f"   [{i}/{len(files)}] {filepath.name}")
-            
+
             metadata = self.analyze_file(filepath)
             if metadata:
                 # Group by fingerprint
                 self.fingerprints[metadata['fingerprint']].append(metadata)
-        
+
         # Identify duplicates (fingerprints with multiple files)
         print(f"\n🔎 Identifying duplicates...")
         for fingerprint, file_list in self.fingerprints.items():
@@ -224,30 +224,30 @@ class DuplicateFinder:
                     key=lambda x: (x['bitrate'], x['size']),
                     reverse=True
                 )
-                
+
                 # First file is the original (highest quality)
                 original = sorted_files[0]
                 duplicates = sorted_files[1:]
-                
+
                 self.duplicates.append((
                     original,
                     duplicates
                 ))
-        
+
         print(f"   Found {len(self.duplicates)} groups of duplicates")
         print(f"   Total duplicate files: {sum(len(dups) for _, dups in self.duplicates)}")
-    
+
     def save_report(self, report_path: str = "duplicates_report.csv"):
         """Save duplicate report to CSV file."""
         report_file = self.input_dir.parent / report_path
-        
+
         with open(report_file, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow([
-                'Status', 'Filename', 'Duration (s)', 'Size (MB)', 
+                'Status', 'Filename', 'Duration (s)', 'Size (MB)',
                 'Bitrate (kbps)', 'Fingerprint', 'Group'
             ])
-            
+
             for group_idx, (original, duplicates) in enumerate(self.duplicates, 1):
                 # Write original
                 writer.writerow([
@@ -259,7 +259,7 @@ class DuplicateFinder:
                     original['fingerprint'][:8],
                     group_idx
                 ])
-                
+
                 # Write duplicates
                 for dup in duplicates:
                     writer.writerow([
@@ -271,28 +271,28 @@ class DuplicateFinder:
                         dup['fingerprint'][:8],
                         group_idx
                     ])
-                
+
                 # Empty row between groups
                 writer.writerow([])
-        
+
         print(f"\n📄 Report saved to: {report_file}")
         return report_file
-    
+
     def copy_originals(self):
         """Copy original (highest quality) files to output directory."""
         if not self.duplicates:
             print("\n✓ No duplicates found - all files are unique!")
             return
-        
+
         os.makedirs(self.output_dir, exist_ok=True)
-        
+
         print(f"\n📁 Copying originals to {self.output_dir}...")
         copied = 0
-        
+
         for original, duplicates in self.duplicates:
             src = original['path']
             dst = self.output_dir / original['filename']
-            
+
             # Handle filename conflicts
             if dst.exists():
                 base = dst.stem
@@ -301,14 +301,14 @@ class DuplicateFinder:
                 while dst.exists():
                     dst = self.output_dir / f"{base}_{counter}{ext}"
                     counter += 1
-            
+
             try:
                 shutil.copy2(src, dst)
                 copied += 1
                 print(f"   ✓ {original['filename']}")
             except Exception as e:
                 print(f"   ❌ Failed to copy {original['filename']}: {e}")
-        
+
         print(f"\n✅ Copied {copied} original files")
         print(f"   {sum(len(dups) for _, dups in self.duplicates)} duplicates identified")
 
@@ -316,7 +316,7 @@ class DuplicateFinder:
 def main():
     """Main execution function."""
     import argparse
-    
+
     parser = argparse.ArgumentParser(
         description='Find duplicate audio files using audio fingerprinting'
     )
@@ -340,18 +340,18 @@ def main():
         action='store_true',
         help='Generate report only, do not copy files'
     )
-    
+
     args = parser.parse_args()
-    
+
     print("🎵 Audio Duplicate Finder")
     print("=" * 60)
-    
+
     # Check dependencies
     if not MUTAGEN_AVAILABLE:
         print("\n❌ Error: mutagen is required")
         print("   Install with: pip install mutagen")
         return
-    
+
     if not ACOUSTID_AVAILABLE and not PYDUB_AVAILABLE:
         print("\n⚠️  Warning: No audio analysis libraries available")
         print("   For best results, install:")
@@ -359,22 +359,22 @@ def main():
         print("   or")
         print("   pip install pydub scipy numpy")
         print("\n   Falling back to duration-only comparison (less accurate)")
-    
+
     # Initialize finder
     finder = DuplicateFinder(args.input_dir, args.output_dir)
-    
+
     # Find duplicates
     finder.find_duplicates()
-    
+
     # Save report
     finder.save_report(args.report)
-    
+
     # Copy originals unless --no-copy specified
     if not args.no_copy:
         finder.copy_originals()
     else:
         print("\n⚠️  Skipping file copy (--no-copy specified)")
-    
+
     print("\n" + "=" * 60)
     print("✅ Done!")
 

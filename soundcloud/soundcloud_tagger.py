@@ -538,25 +538,25 @@ class MetadataAggregator:
             # Get the covers directory path (relative to script location)
             script_dir = Path(__file__).parent
             covers_dir = script_dir / 'covers'
-            
+
             if not covers_dir.exists():
                 return None
-            
+
             # Get all image files
             image_extensions = {'.jpg', '.jpeg', '.png', '.webp', '.avif'}
             cover_files = [f for f in covers_dir.iterdir()
                           if f.is_file() and f.suffix.lower() in image_extensions]
-            
+
             if not cover_files:
                 return None
-            
+
             # Select random cover
             selected_cover = random.choice(cover_files)
-            
+
             # Read and return the image data
             with open(selected_cover, 'rb') as f:
                 return f.read()
-                
+
         except Exception as e:
             print(f"  ⚠️  Error loading random cover: {e}")
             return None
@@ -636,7 +636,7 @@ class MusicTagger:
         """
         if not text:
             return text
-        
+
         # Replace filesystem-unsafe characters
         replacements = {
             '/': '∕',   # Division slash (U+2215)
@@ -649,10 +649,10 @@ class MusicTagger:
             '>': '＞',  # Greater than
             '|': '｜',  # Pipe
         }
-        
+
         for old, new in replacements.items():
             text = text.replace(old, new)
-        
+
         return text.strip()
 
     def _generate_filename(self, metadata: Dict, original_ext: str) -> str:
@@ -665,41 +665,41 @@ class MusicTagger:
         disc = metadata.get('discnumber', '').strip() or '1'
         track = metadata.get('tracknumber', '').strip() or '00'
         title = metadata.get('title', '').strip() or 'Unknown Title'
-        
+
         # Prefer albumartist, fallback to artist
         artist = metadata.get('albumartist', '').strip()
         if not artist:
             artist = metadata.get('artist', '').strip() or 'Unknown Artist'
-        
+
         album = metadata.get('album', '').strip() or 'Unknown Album'
-        
+
         # Clean track number (remove any non-numeric parts like "1/12")
         if '/' in track:
             track = track.split('/')[0]
         track = ''.join(c for c in track if c.isdigit())
         if not track:
             track = '00'
-        
+
         # Pad track number to 2 digits
         track = track.zfill(2)
-        
+
         # Clean disc number
         if '/' in disc:
             disc = disc.split('/')[0]
         disc = ''.join(c for c in disc if c.isdigit())
         if not disc:
             disc = '1'
-        
+
         # Sanitize all components
         disc = self._sanitize_filename(disc)
         track = self._sanitize_filename(track)
         title = self._sanitize_filename(title)
         artist = self._sanitize_filename(artist)
         album = self._sanitize_filename(album)
-        
+
         # Build filename: disc - track - title - artist - album.ext
         filename = f"{disc} - {track} - {title} - {artist} - {album}{original_ext}"
-        
+
         return filename
 
     def tag_file(self, filepath: str, output_dir: str) -> bool:
@@ -763,11 +763,11 @@ class MusicTagger:
         if success:
             # Generate new filename from metadata
             new_filename = self._generate_filename(metadata, original_ext)
-            
+
             # Copy to tagged directory with new filename
             os.makedirs(output_dir, exist_ok=True)
             dest_path = os.path.join(output_dir, new_filename)
-            
+
             # Handle filename conflicts
             if os.path.exists(dest_path):
                 base = os.path.splitext(new_filename)[0]
@@ -776,7 +776,7 @@ class MusicTagger:
                 while os.path.exists(dest_path):
                     dest_path = os.path.join(output_dir, f"{base}_{counter}{ext}")
                     counter += 1
-            
+
             shutil.copy2(filepath, dest_path)
             print(f"  📝 New filename: {os.path.basename(dest_path)}")
             print(f"  ✅ Tagged and copied to {output_dir}")
@@ -826,7 +826,7 @@ class MusicTagger:
             audio.tags['covr'] = [MP4Cover(cover_art, imageformat=MP4Cover.FORMAT_JPEG)]
 
         audio.save()
-        
+
         # Extract disc/track numbers from file for filename generation
         # Store them back in metadata dict for use by _generate_filename
         if audio.tags:
@@ -835,13 +835,13 @@ class MusicTagger:
                 track_info = audio.tags['trkn'][0]
                 if isinstance(track_info, tuple) and len(track_info) >= 1:
                     metadata['tracknumber'] = str(track_info[0])
-            
+
             # Disc number
             if 'disk' in audio.tags:
                 disc_info = audio.tags['disk'][0]
                 if isinstance(disc_info, tuple) and len(disc_info) >= 1:
                     metadata['discnumber'] = str(disc_info[0])
-        
+
         return True
 
     def _tag_mp3(self, filepath: str, metadata: Dict, cover_art: Optional[bytes]) -> bool:
@@ -877,7 +877,7 @@ class MusicTagger:
             )
 
         audio.save()
-        
+
         # Extract disc/track numbers from file for filename generation
         # Store them back in metadata dict for use by _generate_filename
         if audio.tags:
@@ -888,7 +888,7 @@ class MusicTagger:
                     metadata['tracknumber'] = track_text.split('/')[0]
                 else:
                     metadata['tracknumber'] = track_text
-            
+
             # Disc number (TPOS frame)
             if 'TPOS' in audio.tags:
                 disc_text = str(audio.tags['TPOS'])
@@ -896,7 +896,7 @@ class MusicTagger:
                     metadata['discnumber'] = disc_text.split('/')[0]
                 else:
                     metadata['discnumber'] = disc_text
-        
+
         return True
 
 
