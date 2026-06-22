@@ -147,6 +147,7 @@ class StreamingSearcher:
                     'Authorization': f'Bearer {self.spotify_token}'
                 }
 
+                response = {}
                 for query in search_strategies:
                     params = {
                         'q': query,
@@ -178,11 +179,15 @@ class StreamingSearcher:
                             
                             # If no exact match, return first result
                             return items[0]['external_urls']['spotify']
+                        
                     
                     # Small delay between strategies
                     time.sleep(0.1)
 
+                print(f"  ⚠️  Spotify API search failed, resp.: {response.text}")
+
             except Exception as e:
+                print(f"  ❌  Spotify API search error: {e}")
                 pass
 
         # Fallback to web search URL
