@@ -418,7 +418,7 @@ class MusicLibraryScanner:
 
 
 class StreamingServiceFinder:
-    """Main class for finding albums on streaming services."""
+    """Main class for finding albums and artists on streaming services."""
     
     def __init__(self, music_dir: str = 'E:/Music/', output_dir: str = 'streaming_results'):
         """
@@ -432,17 +432,23 @@ class StreamingServiceFinder:
         self.output_dir = Path(output_dir)
         self.searcher = StreamingSearcher()
         self.scanner = MusicLibraryScanner(music_dir)
-        self.results = []
-        self.hits = 0
-        self.misses = 0
+        self.album_results = []
+        self.artist_results = []
+        self.album_hits = 0
+        self.album_misses = 0
+        self.artist_hits = 0
+        self.artist_misses = 0
         
-    def run(self, limit: Optional[int] = None, verbose: bool = True) -> Dict[str, any]:  # type: ignore
+    def run(self, limit: Optional[int] = None, verbose: bool = True,
+            search_albums: bool = True, search_artists: bool = True) -> Dict[str, any]:  # type: ignore
         """
-        Run the complete search workflow.
+        Run the complete search workflow for albums and/or artists.
         
         Args:
-            limit: Optional limit on number of albums to search
+            limit: Optional limit on number of items to search
             verbose: Whether to print progress messages
+            search_albums: Whether to search for albums
+            search_artists: Whether to search for artists
             
         Returns:
             Dictionary with results and statistics
@@ -463,122 +469,240 @@ class StreamingServiceFinder:
         if not albums:
             if verbose:
                 print("\n❌ No albums found in library!")
-            return {'albums': [], 'hits': 0, 'misses': 0, 'total': 0}
+            return {'albums': [], 'artists': [], 'album_hits': 0, 'album_misses': 0,
+                    'artist_hits': 0, 'artist_misses': 0, 'total_albums': 0, 'total_artists': 0}
         
-        # Limit albums if requested
+        # Extract unique artists
+        unique_artists = set(album_artist for album_artist, _ in albums)
+        
+        # Apply limit
         if limit:
             albums = set(list(albums)[:limit])
+            unique_artists = set(album_artist for album_artist, _ in albums)
             if verbose:
                 print(f"\n⚠️  Limited to {limit} albums for testing")
         
         # Search for albums
-        if verbose:
-            print(f"\n🔍 Searching for {len(albums)} albums on streaming services...")
-        
-        self.results = []
-        self.hits = 0
-        self.misses = 0
-        
-        for i, (album_artist, album) in enumerate(sorted(albums), 1):
+        if search_albums:
             if verbose:
-                print(f"  [{i}/{len(albums)}] {album_artist} - {album}")
+                print(f"\n🔍 Searching for {len(albums)} albums on streaming services...")
             
-            # Search all services
-            service_results = self.searcher.search_all_services(album_artist, album)
+            self.album_results = []
+            self.album_hits = 0
+            self.album_misses = 0
             
-            # Check if any service found the album
-            found = any(url is not None for url in service_results.values())
-            
-            if found:
-                self.hits += 1
-                self.results.append({
-                    'album_artist': album_artist,
-                    'album': album,
-                    'services': service_results
-                })
+            for i, (album_artist, album) in enumerate(sorted(albums), 1):
                 if verbose:
-                    print(f"    ✓ Found on streaming services")
-            else:
-                self.misses += 1
-                if verbose:
-                    print(f"    ✗ Not found on any service")
+                    print(f"  [{i}/{len(albums)}] {album_artist} - {album}")
+                
+                # Search all services
+                service_results = self.searcher.search_all_services(album_artist, album)
+                
+                # Check if any service found the album
+                found = any(url is not None for url in service_results.values())
+                
+                if found:
+                    self.album_hits += 1
+                    self.album_results.append({
+                        'album_artist': album_artist,
+                        'album': album,
+                        'services': service_results
+                    })
+                    if verbose:
+                        print(f"    ✓ Found on streaming services")
+                else:
+                    self.album_misses += 1
+                    if verbose:
+                        print(f"    ✗ Not found on any service")
+                
+                # Progress update every 50 albums
+                if verbose and i % 50 == 0:
+                    print(f"\n  Progress: {i}/{len(albums)} albums searched ({self.album_hits} hits, {self.album_misses} misses)\n")
+        
+        # Search for artists
+        if search_artists:
+            if verbose:
+                print(f"\n🔍 Searching for {len(unique_artists)} artists on streaming services...")
             
-            # Progress update every 50 albums
-            if verbose and i % 50 == 0:
-                print(f"\n  Progress: {i}/{len(albums)} albums searched ({self.hits} hits, {self.misses} misses)\n")
+            self.artist_results = []
+            self.artist_hits = 0
+            self.artist_misses = 0
+            
+            for i, artist in enumerate(sorted(unique_artists), 1):
+                if verbose:
+                    print(f"  [{i}/{len(unique_artists)}] {artist}")
+                
+                # Search all services for artist
+                service_results = self.searcher.search_all_services(artist, '')
+                
+                # Check if any service found the artist
+                found = any(url is not None for url in service_results.values())
+                
+                if found:
+                    self.artist_hits += 1
+                    self.artist_results.append({
+                        'artist': artist,
+                        'services': service_results
+                    })
+                    if verbose:
+                        print(f"    ✓ Found on streaming services")
+                else:
+                    self.artist_misses += 1
+                    if verbose:
+                        print(f"    ✗ Not found on any service")
+                
+                # Progress update every 50 artists
+                if verbose and i % 50 == 0:
+                    print(f"\n  Progress: {i}/{len(unique_artists)} artists searched ({self.artist_hits} hits, {self.artist_misses} misses)\n")
         
         # Write output files
-        self._write_output_files()
+        self._write_output_files(search_albums, search_artists)
         
         # Print summary
         if verbose:
-            self._print_summary(len(albums))
+            self._print_summary(len(albums) if search_albums else 0,
+                              len(unique_artists) if search_artists else 0,
+                              search_albums, search_artists)
         
         return {
-            'albums': self.results,
-            'hits': self.hits,
-            'misses': self.misses,
-            'total': len(albums)
+            'albums': self.album_results,
+            'artists': self.artist_results,
+            'album_hits': self.album_hits,
+            'album_misses': self.album_misses,
+            'artist_hits': self.artist_hits,
+            'artist_misses': self.artist_misses,
+            'total_albums': len(albums) if search_albums else 0,
+            'total_artists': len(unique_artists) if search_artists else 0
         }
     
-    def _write_output_files(self):
+    def _write_output_files(self, search_albums: bool = True, search_artists: bool = True):
         """Write results to separate files for each service."""
-        # Create output directory
+        # Create output directories
         self.output_dir.mkdir(exist_ok=True)
         
-        # Collect URLs by service
-        service_urls = defaultdict(list)
-        
-        for result in self.results:
-            for service, url in result['services'].items():
-                if url:
-                    service_urls[service].append(url)
-        
-        # Write separate file for each service
-        for service, urls in service_urls.items():
-            output_file = self.output_dir / f'{service}.txt'
-            with open(output_file, 'w', encoding='utf-8') as f:
-                f.write(', '.join(urls))
-        
-        # Write combined log file
-        log_file = self.output_dir / 'search.log'
-        with open(log_file, 'w', encoding='utf-8') as f:
-            f.write("Music Library Streaming Service Search Log\n")
-            f.write("=" * 70 + "\n")
-            f.write(f"Search completed: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write(f"Total albums found: {self.hits}\n\n")
+        if search_albums:
+            albums_dir = self.output_dir / 'albums'
+            albums_dir.mkdir(exist_ok=True)
             
-            for result in self.results:
-                f.write(f"{result['album_artist']} - {result['album']}\n")
+            # Collect album URLs by service
+            album_service_urls = defaultdict(list)
+            
+            for result in self.album_results:
                 for service, url in result['services'].items():
                     if url:
-                        f.write(f"  ✓ {service.capitalize()}: {url}\n")
-                    else:
-                        f.write(f"  ✗ {service.capitalize()}: Not found\n")
-                f.write("\n")
+                        album_service_urls[service].append(url)
             
-            # Write summary
-            f.write("=" * 70 + "\n")
-            f.write("SUMMARY\n")
-            f.write("=" * 70 + "\n")
-            f.write(f"Total albums searched: {self.hits + self.misses}\n")
-            f.write(f"Found on streaming services: {self.hits}\n")
-            f.write(f"Not found: {self.misses}\n")
+            # Write separate file for each service (newline-separated)
+            for service, urls in album_service_urls.items():
+                output_file = albums_dir / f'{service}.txt'
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    f.write('\n'.join(urls))
+            
+            # Write combined log file for albums
+            log_file = albums_dir / 'search.log'
+            with open(log_file, 'w', encoding='utf-8') as f:
+                f.write("Music Library Albums - Streaming Service Search Log\n")
+                f.write("=" * 70 + "\n")
+                f.write(f"Search completed: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"Total albums found: {self.album_hits}\n\n")
+                
+                for result in self.album_results:
+                    f.write(f"{result['album_artist']} - {result['album']}\n")
+                    for service, url in result['services'].items():
+                        if url:
+                            f.write(f"  ✓ {service.capitalize()}: {url}\n")
+                        else:
+                            f.write(f"  ✗ {service.capitalize()}: Not found\n")
+                    f.write("\n")
+                
+                # Write summary
+                f.write("=" * 70 + "\n")
+                f.write("SUMMARY\n")
+                f.write("=" * 70 + "\n")
+                f.write(f"Total albums searched: {self.album_hits + self.album_misses}\n")
+                f.write(f"Found on streaming services: {self.album_hits}\n")
+                f.write(f"Not found: {self.album_misses}\n")
+        
+        if search_artists:
+            artists_dir = self.output_dir / 'artists'
+            artists_dir.mkdir(exist_ok=True)
+            
+            # Collect artist URLs by service
+            artist_service_urls = defaultdict(list)
+            
+            for result in self.artist_results:
+                for service, url in result['services'].items():
+                    if url:
+                        artist_service_urls[service].append(url)
+            
+            # Write separate file for each service (newline-separated)
+            for service, urls in artist_service_urls.items():
+                output_file = artists_dir / f'{service}.txt'
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    f.write('\n'.join(urls))
+            
+            # Write combined log file for artists
+            log_file = artists_dir / 'search.log'
+            with open(log_file, 'w', encoding='utf-8') as f:
+                f.write("Music Library Artists - Streaming Service Search Log\n")
+                f.write("=" * 70 + "\n")
+                f.write(f"Search completed: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"Total artists found: {self.artist_hits}\n\n")
+                
+                for result in self.artist_results:
+                    f.write(f"{result['artist']}\n")
+                    for service, url in result['services'].items():
+                        if url:
+                            f.write(f"  ✓ {service.capitalize()}: {url}\n")
+                        else:
+                            f.write(f"  ✗ {service.capitalize()}: Not found\n")
+                    f.write("\n")
+                
+                # Write summary
+                f.write("=" * 70 + "\n")
+                f.write("SUMMARY\n")
+                f.write("=" * 70 + "\n")
+                f.write(f"Total artists searched: {self.artist_hits + self.artist_misses}\n")
+                f.write(f"Found on streaming services: {self.artist_hits}\n")
+                f.write(f"Not found: {self.artist_misses}\n")
     
-    def _print_summary(self, total: int):
+    def _print_summary(self, total_albums: int, total_artists: int,
+                      search_albums: bool, search_artists: bool):
         """Print summary statistics."""
         print("\n" + "=" * 70)
         print("SUMMARY")
         print("=" * 70)
-        print(f"Total albums searched: {total}")
-        print(f"Found on streaming services: {self.hits} ({self.hits/total*100:.1f}%)")
-        print(f"Not found: {self.misses} ({self.misses/total*100:.1f}%)")
+        
+        if search_albums:
+            print(f"\nAlbums:")
+            print(f"  Total searched: {total_albums}")
+            print(f"  Found: {self.album_hits} ({self.album_hits/total_albums*100:.1f}%)" if total_albums > 0 else "  Found: 0")
+            print(f"  Not found: {self.album_misses}")
+        
+        if search_artists:
+            print(f"\nArtists:")
+            print(f"  Total searched: {total_artists}")
+            print(f"  Found: {self.artist_hits} ({self.artist_hits/total_artists*100:.1f}%)" if total_artists > 0 else "  Found: 0")
+            print(f"  Not found: {self.artist_misses}")
+        
         print(f"\nResults written to: {self.output_dir}/")
-        print("  Service-specific files:")
-        for service_file in sorted(self.output_dir.glob('*.txt')):
-            if service_file.name != 'search.log':
-                print(f"    - {service_file.name}")
-        print(f"  Detailed log: search.log")
+        
+        if search_albums:
+            albums_dir = self.output_dir / 'albums'
+            print("  Albums:")
+            for service_file in sorted(albums_dir.glob('*.txt')):
+                if service_file.name != 'search.log':
+                    print(f"    - albums/{service_file.name}")
+            print(f"    - albums/search.log")
+        
+        if search_artists:
+            artists_dir = self.output_dir / 'artists'
+            print("  Artists:")
+            for service_file in sorted(artists_dir.glob('*.txt')):
+                if service_file.name != 'search.log':
+                    print(f"    - artists/{service_file.name}")
+            print(f"    - artists/search.log")
+        
         print("=" * 70)
 
 
@@ -604,8 +728,22 @@ def main():
         type=int,
         help='Limit number of albums to search (for testing)'
     )
+    parser.add_argument(
+        '--albums-only',
+        action='store_true',
+        help='Search only for albums (skip artists)'
+    )
+    parser.add_argument(
+        '--artists-only',
+        action='store_true',
+        help='Search only for artists (skip albums)'
+    )
 
     args = parser.parse_args()
+    
+    # Determine what to search
+    search_albums = not args.artists_only
+    search_artists = not args.albums_only
     
     # Create and run finder
     finder = StreamingServiceFinder(
@@ -613,7 +751,8 @@ def main():
         output_dir=args.output_dir
     )
     
-    finder.run(limit=args.limit, verbose=True)
+    finder.run(limit=args.limit, verbose=True,
+              search_albums=search_albums, search_artists=search_artists)
 
 
 if __name__ == '__main__':
