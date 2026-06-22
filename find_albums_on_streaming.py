@@ -26,13 +26,14 @@ import json
 import re
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Set
-from collections import defaultdict
-from urllib.parse import quote_plus
+from collections import defaultdict, deque
+from urllib.parse import quote_plus, urlparse
 import requests
+from datetime import datetime, timedelta
 
 
 class StreamingSearcher:
-    """Search for albums across multiple streaming services."""
+    """Search for albums across multiple streaming services with rate limit handling."""
 
     def __init__(self, spotify_client_id: Optional[str] = None,
                  spotify_client_secret: Optional[str] = None):
@@ -59,6 +60,18 @@ class StreamingSearcher:
         self.session.headers.update({
             'User-Agent': 'MusicLibraryStreamingFinder/1.0'
         })
+        
+        # Rate limit tracking
+        self.service_timeouts: Dict[str, datetime] = {}
+        self.retry_queues: Dict[str, deque] = defaultdict(deque)
+        self.rate_limit_delays = {
+            'spotify': 60,      # 1 minute timeout on rate limit
+            'deezer': 60,
+            'apple_music': 0,   # No API, just URL generation
+            'tidal': 0,
+            'qobuz': 0,
+            'amazon_music': 0
+        }
 
     def _load_config(self):
         """Load API credentials from config file."""
@@ -98,6 +111,68 @@ class StreamingSearcher:
                 print(f"  ⚠️  Spotify auth failed: {response.status_code}")
         except Exception as e:
             print(f"  ⚠️  Spotify auth error: {e}")
+    
+    @staticmethod
+    def is_direct_link(url: str, service: str) -> bool:
+        """
+        Determine if a URL is a direct link or a search URL.
+        
+        Args:
+            url: The URL to check
+            service: The service name
+            
+        Returns:
+            True if it's a direct link, False if it's a search URL
+        """
+        if not url:
+            return False
+        
+        # Parse URL
+        parsed = urlparse(url)
+        path = parsed.path.lower()
+        query = parsed.query.lower()
+        
+        # Service-specific detection
+        if service == 'spotify':
+            # Direct: /album/ID or /artist/ID
+            # Search: /search/... or has 'q=' parameter
+            return '/album/' in path or '/artist/' in path
+        
+        elif service == 'deezer':
+            # Direct: /album/ID or /artist/ID
+            # Search: /search/...
+            return ('/album/' in path or '/artist/' in path) and '/search' not in path
+        
+        elif service in ['apple_music', 'tidal', 'qobuz', 'amazon_music']:
+            # These typically return search URLs
+            # Direct links would have specific album/artist IDs in path
+            return 'search' not in path and 'q=' not in query and 'term=' not in query
+        
+        return False
+    
+    def is_service_available(self, service: str) -> bool:
+        """Check if a service is currently available (not timed out)."""
+        if service not in self.service_timeouts:
+            return True
+        
+        timeout_until = self.service_timeouts[service]
+        if datetime.now() >= timeout_until:
+            # Timeout expired, service is available again
+            del self.service_timeouts[service]
+            return True
+        
+        return False
+    
+    def set_service_timeout(self, service: str):
+        """Set a timeout for a service after rate limit."""
+        delay = self.rate_limit_delays.get(service, 60)
+        self.service_timeouts[service] = datetime.now() + timedelta(seconds=delay)
+        print(f"  ⚠️  {service.capitalize()} rate limited, timeout for {delay}s")
+    
+    def handle_rate_limit(self, service: str, artist: str, album: str):
+        """Add a request to the retry queue for later."""
+        self.retry_queues[service].append((artist, album))
+        self.set_service_timeout(service)
 
     def search_spotify_web(self, album_artist: str, album: str) -> Optional[str]:
         """
@@ -147,7 +222,6 @@ class StreamingSearcher:
                     'Authorization': f'Bearer {self.spotify_token}'
                 }
 
-                response = {}
                 for query in search_strategies:
                     params = {
                         'q': query,
@@ -162,6 +236,11 @@ class StreamingSearcher:
                         timeout=10
                     )
 
+                    # Check for rate limiting
+                    if response.status_code == 429:
+                        self.handle_rate_limit('spotify', album_artist, album)
+                        return None
+                    
                     if response.status_code == 200:
                         data = response.json()
                         items = data.get('albums', {}).get('items', [])
@@ -184,7 +263,7 @@ class StreamingSearcher:
                     # Small delay between strategies
                     time.sleep(0.1)
 
-                print(f"  ⚠️  Spotify API search failed, resp.: {response.text}")
+                print(f"  ⚠️  Spotify API search failed")
 
             except Exception as e:
                 print(f"  ❌  Spotify API search error: {e}")
@@ -301,6 +380,11 @@ class StreamingSearcher:
                 params=params,
                 timeout=10
             )
+
+            # Check for rate limiting
+            if response.status_code == 429:
+                self.handle_rate_limit('deezer', album_artist, album)
+                return None
 
             if response.status_code == 200:
                 data = response.json()
@@ -444,6 +528,110 @@ class StreamingServiceFinder:
         self.artist_hits = 0
         self.artist_misses = 0
         
+        # Cache for tracking already-fetched items per service
+        self.cache_dir = self.output_dir / 'cache'
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.album_cache: Dict[str, Set[Tuple[str, str]]] = {}  # service -> set of (artist, album)
+        self.artist_cache: Dict[str, Set[str]] = {}  # service -> set of artists
+        self._load_caches()
+        
+    def _load_caches(self):
+        """Load existing caches from disk."""
+        services = ['spotify', 'deezer', 'apple_music', 'tidal', 'qobuz', 'amazon_music']
+        
+        for service in services:
+            # Load album cache
+            album_cache_file = self.cache_dir / f'{service}_albums.json'
+            if album_cache_file.exists():
+                try:
+                    with open(album_cache_file, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        self.album_cache[service] = set(tuple(item) for item in data)
+                except Exception:
+                    self.album_cache[service] = set()
+            else:
+                self.album_cache[service] = set()
+            
+            # Load artist cache
+            artist_cache_file = self.cache_dir / f'{service}_artists.json'
+            if artist_cache_file.exists():
+                try:
+                    with open(artist_cache_file, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        self.artist_cache[service] = set(data)
+                except Exception:
+                    self.artist_cache[service] = set()
+            else:
+                self.artist_cache[service] = set()
+    
+    def _save_cache(self, service: str, item_type: str, item: any):  # type: ignore
+        """
+        Save a single item to cache immediately after successful fetch.
+        
+        Args:
+            service: Service name
+            item_type: 'album' or 'artist'
+            item: Tuple of (artist, album) for albums, or artist string for artists
+        """
+        if item_type == 'album':
+            self.album_cache[service].add(item)
+            cache_file = self.cache_dir / f'{service}_albums.json'
+            data = [list(t) for t in self.album_cache[service]]
+        else:  # artist
+            self.artist_cache[service].add(item)
+            cache_file = self.cache_dir / f'{service}_artists.json'
+            data = list(self.artist_cache[service])
+        
+        try:
+            with open(cache_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            print(f"  ⚠️  Failed to save cache for {service}: {e}")
+    
+    def _is_cached(self, service: str, item_type: str, item: any) -> bool:  # type: ignore
+        """
+        Check if an item is already cached for a service.
+        
+        Args:
+            service: Service name
+            item_type: 'album' or 'artist'
+            item: Tuple of (artist, album) for albums, or artist string for artists
+            
+        Returns:
+            True if item is cached, False otherwise
+        """
+        if item_type == 'album':
+            return item in self.album_cache.get(service, set())
+        else:  # artist
+            return item in self.artist_cache.get(service, set())
+    
+    def _append_to_output_file(self, service: str, item_type: str, url: str):
+        """
+        Append a URL to the appropriate output file immediately.
+        
+        Args:
+            service: Service name
+            item_type: 'album' or 'artist'
+            url: URL to append
+        """
+        # Only write direct links, not search URLs
+        if not self.searcher.is_direct_link(url, service):
+            return
+        
+        if item_type == 'album':
+            output_dir = self.output_dir / 'albums'
+        else:
+            output_dir = self.output_dir / 'artists'
+        
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_file = output_dir / f'{service}.txt'
+        
+        try:
+            with open(output_file, 'a', encoding='utf-8') as f:
+                f.write(url + '\n')
+        except Exception as e:
+            print(f"  ⚠️  Failed to write to {output_file}: {e}")
+    
     def run(self, limit: Optional[int] = None, verbose: bool = True,
             search_albums: bool = True, search_artists: bool = True) -> Dict[str, any]:  # type: ignore
         """
@@ -501,20 +689,62 @@ class StreamingServiceFinder:
                     print(f"  [{i}/{len(albums)}] {album_artist} - {album}")
                 
                 # Search all services
-                service_results = self.searcher.search_all_services(album_artist, album)
+                service_results = {}
+                item_tuple = (album_artist, album)
+                found_any = False  # Track if found in any service (including cached)
                 
-                # Check if any service found the album
-                found = any(url is not None for url in service_results.values())
+                for service in ['deezer', 'spotify', 'apple_music', 'tidal', 'qobuz', 'amazon_music']:
+                    # Skip if already cached
+                    if self._is_cached(service, 'album', item_tuple):
+                        if verbose:
+                            print(f"    ⚡ {service}: cached")
+                        service_results[service] = None  # Don't re-fetch
+                        found_any = True  # Mark as found since it was cached
+                        continue
+                    
+                    # Check if service is available (not timed out)
+                    if not self.searcher.is_service_available(service):
+                        if verbose:
+                            print(f"    ⏸️  {service}: timed out, skipping")
+                        service_results[service] = None
+                        continue
+                    
+                    # Search this service
+                    if service == 'deezer':
+                        url = self.searcher.search_deezer(album_artist, album)
+                    elif service == 'spotify':
+                        url = self.searcher.search_spotify(album_artist, album)
+                    elif service == 'apple_music':
+                        url = self.searcher.search_apple_music(album_artist, album)
+                    elif service == 'tidal':
+                        url = self.searcher.search_tidal(album_artist, album)
+                    elif service == 'qobuz':
+                        url = self.searcher.search_qobuz(album_artist, album)
+                    elif service == 'amazon_music':
+                        url = self.searcher.search_amazon_music(album_artist, album)
+                    else:
+                        url = None
+                    
+                    service_results[service] = url
+                    
+                    # If found, save to cache and append to output file immediately
+                    if url:
+                        self._save_cache(service, 'album', item_tuple)
+                        self._append_to_output_file(service, 'album', url)
+                        found_any = True
+                        if verbose:
+                            is_direct = self.searcher.is_direct_link(url, service)
+                            link_type = "direct" if is_direct else "search"
+                            print(f"    ✓ {service}: {link_type} link")
                 
-                if found:
+                # Check if any service found the album (including cached)
+                if found_any:
                     self.album_hits += 1
                     self.album_results.append({
                         'album_artist': album_artist,
                         'album': album,
                         'services': service_results
                     })
-                    if verbose:
-                        print(f"    ✓ Found on streaming services")
                 else:
                     self.album_misses += 1
                     if verbose:
@@ -538,19 +768,60 @@ class StreamingServiceFinder:
                     print(f"  [{i}/{len(unique_artists)}] {artist}")
                 
                 # Search all services for artist
-                service_results = self.searcher.search_all_services(artist, '')
+                service_results = {}
+                found_any = False  # Track if found in any service (including cached)
                 
-                # Check if any service found the artist
-                found = any(url is not None for url in service_results.values())
+                for service in ['deezer', 'spotify', 'apple_music', 'tidal', 'qobuz', 'amazon_music']:
+                    # Skip if already cached
+                    if self._is_cached(service, 'artist', artist):
+                        if verbose:
+                            print(f"    ⚡ {service}: cached")
+                        service_results[service] = None  # Don't re-fetch
+                        found_any = True  # Mark as found since it was cached
+                        continue
+                    
+                    # Check if service is available (not timed out)
+                    if not self.searcher.is_service_available(service):
+                        if verbose:
+                            print(f"    ⏸️  {service}: timed out, skipping")
+                        service_results[service] = None
+                        continue
+                    
+                    # Search this service
+                    if service == 'deezer':
+                        url = self.searcher.search_deezer(artist, '')
+                    elif service == 'spotify':
+                        url = self.searcher.search_spotify(artist, '')
+                    elif service == 'apple_music':
+                        url = self.searcher.search_apple_music(artist, '')
+                    elif service == 'tidal':
+                        url = self.searcher.search_tidal(artist, '')
+                    elif service == 'qobuz':
+                        url = self.searcher.search_qobuz(artist, '')
+                    elif service == 'amazon_music':
+                        url = self.searcher.search_amazon_music(artist, '')
+                    else:
+                        url = None
+                    
+                    service_results[service] = url
+                    
+                    # If found, save to cache and append to output file immediately
+                    if url:
+                        self._save_cache(service, 'artist', artist)
+                        self._append_to_output_file(service, 'artist', url)
+                        found_any = True
+                        if verbose:
+                            is_direct = self.searcher.is_direct_link(url, service)
+                            link_type = "direct" if is_direct else "search"
+                            print(f"    ✓ {service}: {link_type} link")
                 
-                if found:
+                # Check if any service found the artist (including cached)
+                if found_any:
                     self.artist_hits += 1
                     self.artist_results.append({
                         'artist': artist,
                         'services': service_results
                     })
-                    if verbose:
-                        print(f"    ✓ Found on streaming services")
                 else:
                     self.artist_misses += 1
                     if verbose:
@@ -581,27 +852,13 @@ class StreamingServiceFinder:
         }
     
     def _write_output_files(self, search_albums: bool = True, search_artists: bool = True):
-        """Write results to separate files for each service."""
+        """Write log files with search results (URLs are written incrementally during search)."""
         # Create output directories
         self.output_dir.mkdir(exist_ok=True)
         
         if search_albums:
             albums_dir = self.output_dir / 'albums'
             albums_dir.mkdir(exist_ok=True)
-            
-            # Collect album URLs by service
-            album_service_urls = defaultdict(list)
-            
-            for result in self.album_results:
-                for service, url in result['services'].items():
-                    if url:
-                        album_service_urls[service].append(url)
-            
-            # Write separate file for each service (newline-separated)
-            for service, urls in album_service_urls.items():
-                output_file = albums_dir / f'{service}.txt'
-                with open(output_file, 'w', encoding='utf-8') as f:
-                    f.write('\n'.join(urls))
             
             # Write combined log file for albums
             log_file = albums_dir / 'search.log'
@@ -615,7 +872,9 @@ class StreamingServiceFinder:
                     f.write(f"{result['album_artist']} - {result['album']}\n")
                     for service, url in result['services'].items():
                         if url:
-                            f.write(f"  ✓ {service.capitalize()}: {url}\n")
+                            is_direct = self.searcher.is_direct_link(url, service)
+                            link_type = " (direct)" if is_direct else " (search)"
+                            f.write(f"  ✓ {service.capitalize()}: {url}{link_type}\n")
                         else:
                             f.write(f"  ✗ {service.capitalize()}: Not found\n")
                     f.write("\n")
@@ -627,24 +886,11 @@ class StreamingServiceFinder:
                 f.write(f"Total albums searched: {self.album_hits + self.album_misses}\n")
                 f.write(f"Found on streaming services: {self.album_hits}\n")
                 f.write(f"Not found: {self.album_misses}\n")
+                f.write(f"\nNote: Only direct links are written to service-specific .txt files\n")
         
         if search_artists:
             artists_dir = self.output_dir / 'artists'
             artists_dir.mkdir(exist_ok=True)
-            
-            # Collect artist URLs by service
-            artist_service_urls = defaultdict(list)
-            
-            for result in self.artist_results:
-                for service, url in result['services'].items():
-                    if url:
-                        artist_service_urls[service].append(url)
-            
-            # Write separate file for each service (newline-separated)
-            for service, urls in artist_service_urls.items():
-                output_file = artists_dir / f'{service}.txt'
-                with open(output_file, 'w', encoding='utf-8') as f:
-                    f.write('\n'.join(urls))
             
             # Write combined log file for artists
             log_file = artists_dir / 'search.log'
@@ -658,7 +904,9 @@ class StreamingServiceFinder:
                     f.write(f"{result['artist']}\n")
                     for service, url in result['services'].items():
                         if url:
-                            f.write(f"  ✓ {service.capitalize()}: {url}\n")
+                            is_direct = self.searcher.is_direct_link(url, service)
+                            link_type = " (direct)" if is_direct else " (search)"
+                            f.write(f"  ✓ {service.capitalize()}: {url}{link_type}\n")
                         else:
                             f.write(f"  ✗ {service.capitalize()}: Not found\n")
                     f.write("\n")
@@ -670,6 +918,7 @@ class StreamingServiceFinder:
                 f.write(f"Total artists searched: {self.artist_hits + self.artist_misses}\n")
                 f.write(f"Found on streaming services: {self.artist_hits}\n")
                 f.write(f"Not found: {self.artist_misses}\n")
+                f.write(f"\nNote: Only direct links are written to service-specific .txt files\n")
     
     def _print_summary(self, total_albums: int, total_artists: int,
                       search_albums: bool, search_artists: bool):
