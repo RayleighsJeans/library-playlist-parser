@@ -853,4 +853,207 @@ For higher rate limits and access to private tracks (if needed):
 2. Add it to your config file under `oauth_token`
 3. The script will automatically use it for authenticated requests
 
+
+# Streaming Service Album Finder
+
+Scans your music library and searches for albums across multiple streaming services.
+
+## Features
+
+- **Library Scanning**: Automatically scans music library structure (`album_artist/album/files`)
+- **Multi-Service Search**: Searches across 6 streaming platforms:
+  - **Deezer** - Free API, returns direct album links
+  - **Spotify** - API with premium subscription (falls back to search URLs)
+  - **Apple Music** - Web search URLs
+  - **Tidal** - Web search URLs
+  - **Qobuz** - Web search URLs
+  - **Amazon Music** - Web search URLs
+- **Comprehensive Results**: Generates detailed reports with links to all services
+- **Wikipedia Test Dataset**: Includes test data from best-selling albums
+
+## Installation
+
+Required Python packages:
+```bash
+pip install requests
+```
+
+## Spotify API Setup (Optional)
+
+For direct Spotify album links, you need a premium Spotify account and API credentials.
+
+### Get Spotify Credentials
+
+1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+2. Create a new app
+3. Copy your Client ID and Client Secret
+
+### Create Configuration File
+
+Create `streaming_config.json` in the project directory:
+
+```json
+{
+  "spotify": {
+    "client_id": "YOUR_CLIENT_ID",
+    "client_secret": "YOUR_CLIENT_SECRET"
+  }
+}
+```
+
+**Note**: Spotify API requires a **premium subscription** for the app owner to return direct album links. Without premium, the tool falls back to web search URLs (which still work perfectly).
+
+## Usage
+
+### Basic Usage
+
+Search for albums in your music library:
+```bash
+python3 find_albums_on_streaming.py --music-dir /path/to/music
+```
+
+### Command Line Options
+
+```bash
+python3 find_albums_on_streaming.py [OPTIONS]
+
+Options:
+  --music-dir PATH    Music library root directory (default: E:/Music/)
+  --output PATH       Output file for results (default: streaming_results.txt)
+  --log PATH          Log file for detailed search results (default: streaming_search.log)
+  --limit N           Limit number of albums to search (for testing)
+```
+
+### Examples
+
+**Search your entire library:**
+```bash
+python3 find_albums_on_streaming.py --music-dir /Volumes/Music
+```
+
+**Test with limited albums:**
+```bash
+python3 find_albums_on_streaming.py --limit 10
+```
+
+**Custom output files:**
+```bash
+python3 find_albums_on_streaming.py \
+  --output my_results.txt \
+  --log my_search.log
+```
+
+## Testing with Wikipedia Albums
+
+Test the finder with the included Wikipedia best-selling albums dataset:
+
+```bash
+python3 test/test_wikipedia_albums.py
+```
+
+This searches for 11 iconic albums including:
+- Michael Jackson - Thriller
+- AC/DC - Back in Black
+- Pink Floyd - The Dark Side of the Moon
+- And more...
+
+## Output Files
+
+### Results File (`streaming_results.txt`)
+Contains albums found with links to all available services:
+```
+Michael Jackson - Thriller
+  Deezer: https://www.deezer.com/album/72819
+  Spotify: https://open.spotify.com/album/...
+  Apple_music: https://music.apple.com/us/search?term=...
+  ...
+```
+
+### Log File (`streaming_search.log`)
+Detailed search log with hit/miss statistics:
+```
+[1/100] Artist - Album
+  ✓ Deezer: https://...
+  ✓ Spotify: https://...
+  ✗ Tidal: Not found
+  ...
+```
+
+## How It Works
+
+1. **Library Scanning**: Walks through `album_artist/album/` directory structure
+2. **Album Extraction**: Identifies unique album artist + album combinations
+3. **Multi-Service Search**: Queries each streaming service:
+   - **Deezer**: Uses free public API for direct album links
+   - **Spotify**: Uses API if credentials available, otherwise web search
+   - **Others**: Generates web search URLs
+4. **Results Generation**: Creates comprehensive report with all findings
+
+## Supported Audio Formats
+
+The scanner recognizes these audio file extensions:
+- FLAC (.flac)
+- MP3 (.mp3)
+- M4A/AAC (.m4a, .aac)
+- OGG Vorbis (.ogg)
+- Opus (.opus)
+- WMA (.wma)
+- WAV (.wav)
+
+## API Rate Limiting
+
+The script respects API rate limits:
+- **Deezer**: 0.2s between requests
+- **Spotify**: 0.1s between requests (when using API)
+
+## Unit Tests
+
+Comprehensive test suite included:
+
+```bash
+# Run all tests
+python3 -m unittest test.test_find_albums_on_streaming -v
+
+# Run specific test
+python3 -m unittest test.test_find_albums_on_streaming.TestWikipediaBestsellingAlbums -v
+```
+
+Test coverage includes:
+- Streaming service search functionality
+- Library scanning with various structures
+- Wikipedia best-selling albums component tests
+- Integration tests for complete workflow
+
+## Troubleshooting
+
+### Spotify Returns Search URLs Instead of Direct Links
+
+This is expected behavior without a Spotify premium subscription. The API requires premium to return direct album links. Search URLs still work - they just require one extra click.
+
+### No Albums Found
+
+- Verify music directory path is correct
+- Check that directories follow `album_artist/album/` structure
+- Ensure directories contain audio files
+
+### API Errors
+
+- **Deezer 429**: Rate limit hit, wait a few seconds
+- **Spotify 403**: Premium subscription required for direct links (falls back to search URLs)
+
+## Files
+
+- `find_albums_on_streaming.py` - Main script
+- `test/test_find_albums_on_streaming.py` - Unit tests
+- `test/test_wikipedia_albums.py` - Wikipedia albums test script
+- `test/wikipedia_bestselling_albums.json` - Test dataset
+- `streaming_config.json` - Spotify API credentials (gitignored)
+- `streaming_config.example.json` - Configuration template
+
+## Privacy & Security
+
+- Spotify credentials stored locally only
+- Never committed to version control (add to `.gitignore`)
+- Only public album information is accessed
+- No personal data or listening history accessed
 **Note**: OAuth token is optional. The client ID alone is sufficient for public track artwork.

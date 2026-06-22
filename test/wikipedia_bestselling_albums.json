@@ -1,0 +1,68 @@
+[
+  {
+    "artist": "Michael Jackson",
+    "album": "Thriller",
+    "year": 1982,
+    "sales_millions": 70
+  },
+  {
+    "artist": "AC/DC",
+    "album": "Back in Black",
+    "year": 1980,
+    "sales_millions": 50
+  },
+  {
+    "artist": "Whitney Houston",
+    "album": "The Bodyguard",
+    "year": 1992,
+    "sales_millions": 45
+  },
+  {
+    "artist": "Pink Floyd",
+    "album": "The Dark Side of the Moon",
+    "year": 1973,
+    "sales_millions": 45
+  },
+  {
+    "artist": "Eagles",
+    "album": "Their Greatest Hits (1971-1975)",
+    "year": 1976,
+    "sales_millions": 44
+  },
+  {
+    "artist": "Eagles",
+    "album": "Hotel California",
+    "year": 1976,
+    "sales_millions": 42
+  },
+  {
+    "artist": "Shania Twain",
+    "album": "Come On Over",
+    "year": 1997,
+    "sales_millions": 40
+  },
+  {
+    "artist": "Fleetwood Mac",
+    "album": "Rumours",
+    "year": 1977,
+    "sales_millions": 40
+  },
+  {
+    "artist": "Meat Loaf",
+    "album": "Bat Out of Hell",
+    "year": 1977,
+    "sales_millions": 40
+  },
+  {
+    "artist": "Bee Gees",
+    "album": "Saturday Night Fever",
+    "year": 1977,
+    "sales_millions": 40
+  },
+  {
+    "artist": "Led Zeppelin",
+    "album": "Led Zeppelin IV",
+    "year": 1971,
+    "sales_millions": 37
+  }
+]

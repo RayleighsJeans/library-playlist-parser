@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 class MusicLibraryCache:
     """Cache for music library metadata with versioning and persistence"""
-    
+
     CACHE_VERSION = "1.0.0"
     CACHE_FILENAME = ".playlist_matcher_cache.json"
 
@@ -189,10 +189,10 @@ class MusicLibraryCache:
                             file_count += 1
                             if file_count % 100 == 0:
                                 logger.info(f"Cached {file_count} files...")
-        
+
         logger.info(f"Cache built: {file_count} files indexed")
         logger.info(f"Album artists found: {len(self.album_artist_index)}")
-        
+
         # Update cache metadata
         self.cache_metadata['file_count'] = file_count
         self.cache_metadata['updated_at'] = datetime.now().isoformat()
@@ -205,7 +205,7 @@ class MusicLibraryCache:
             # Get list of all audio files with their modification times
             audio_extensions = {'.flac', '.mp3', '.m4a', '.ogg', '.opus', '.wma', '.aac'}
             file_info = []
-            
+
             for root, _, files in os.walk(self.music_dir):
                 for file in sorted(files):
                     if Path(file).suffix.lower() in audio_extensions:
@@ -215,7 +215,7 @@ class MusicLibraryCache:
                             file_info.append(f"{file_path}:{mtime}")
                         except OSError:
                             continue
-            
+
             # Create hash from file list
             hash_input = "\n".join(file_info).encode('utf-8')
             return hashlib.md5(hash_input).hexdigest()
@@ -225,106 +225,106 @@ class MusicLibraryCache:
 
     def save_cache(self, cache_file: Optional[Path] = None) -> bool:
         """Save cache to disk
-        
+
         Args:
             cache_file: Optional path to cache file. If None, uses self.cache_file
-            
+
         Returns:
             True if successful, False otherwise
         """
         if cache_file is None:
             cache_file = self.cache_file
-            
+
         try:
             # Update metadata
             self.cache_metadata['updated_at'] = datetime.now().isoformat()
             self.cache_metadata['file_count'] = len(self.cache)
             self.cache_metadata['directory_hash'] = self._compute_directory_hash()
-            
+
             # Prepare cache data
             cache_data = {
                 'metadata': self.cache_metadata,
                 'cache': self.cache,
                 'album_artist_index': dict(self.album_artist_index)
             }
-            
+
             # Write to temporary file first, then rename (atomic operation)
             temp_file = cache_file.with_suffix('.tmp')
             with open(temp_file, 'w', encoding='utf-8') as f:
                 json.dump(cache_data, f, indent=2, ensure_ascii=False)
-            
+
             # Atomic rename
             temp_file.replace(cache_file)
             logger.info(f"Cache saved to: {cache_file}")
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to save cache: {e}")
             return False
 
     def load_cache(self, cache_file: Optional[Path] = None, force_rebuild: bool = False) -> bool:
         """Load cache from disk
-        
+
         Args:
             cache_file: Optional path to cache file. If None, uses self.cache_file
             force_rebuild: If True, ignores existing cache and rebuilds
-            
+
         Returns:
             True if cache was loaded successfully, False if needs rebuild
         """
         if force_rebuild:
             logger.info("Force rebuild requested, skipping cache load")
             return False
-            
+
         if cache_file is None:
             cache_file = self.cache_file
-            
+
         if not cache_file.exists():
             logger.info(f"No cache file found at: {cache_file}")
             return False
-            
+
         try:
             with open(cache_file, 'r', encoding='utf-8') as f:
                 cache_data = json.load(f)
-            
+
             # Validate cache version
             metadata = cache_data.get('metadata', {})
             cache_version = metadata.get('version', '0.0.0')
-            
+
             if cache_version != self.CACHE_VERSION:
                 logger.warning(f"Cache version mismatch: {cache_version} != {self.CACHE_VERSION}")
                 logger.info("Cache will be rebuilt")
                 return False
-            
+
             # Validate music directory
             cached_music_dir = metadata.get('music_dir', '')
             if cached_music_dir != str(self.music_dir):
                 logger.warning(f"Music directory changed: {cached_music_dir} -> {self.music_dir}")
                 logger.info("Cache will be rebuilt")
                 return False
-            
+
             # Check if directory structure changed
             current_hash = self._compute_directory_hash()
             cached_hash = metadata.get('directory_hash', '')
-            
+
             if current_hash != cached_hash:
                 logger.info("Music library has changed since cache was created")
                 logger.info("Cache will be rebuilt")
                 return False
-            
+
             # Load cache data
             self.cache = cache_data.get('cache', {})
             self.album_artist_index = defaultdict(list, cache_data.get('album_artist_index', {}))
             self.cache_metadata = metadata
-            
+
             cache_age = metadata.get('updated_at', 'unknown')
             file_count = len(self.cache)
-            
+
             logger.info(f"Cache loaded successfully: {file_count} files")
             logger.info(f"Cache last updated: {cache_age}")
-        
+
             return True
-            
+
         except json.JSONDecodeError as e:
             logger.error(f"Cache file is corrupted: {e}")
             return False
@@ -334,16 +334,16 @@ class MusicLibraryCache:
 
     def clear_cache(self, cache_file: Optional[Path] = None) -> bool:
         """Delete cache file from disk
-        
+
         Args:
             cache_file: Optional path to cache file. If None, uses self.cache_file
-            
+
         Returns:
             True if successful, False otherwise
         """
         if cache_file is None:
             cache_file = self.cache_file
-            
+
         try:
             if cache_file.exists():
                 cache_file.unlink()
@@ -357,7 +357,7 @@ class MusicLibraryCache:
             return False
     def update_cache(self, cache_file: Optional[Path] = None) -> bool:
         """Incrementally update cache by checking for new, modified, or deleted files
-        
+
         This method:
         1. Loads existing cache if available
         2. Scans music directory for all audio files
@@ -366,29 +366,29 @@ class MusicLibraryCache:
         5. Identifies deleted files (in cache but not on disk)
         6. Updates cache with changes
         7. Saves updated cache
-        
+
         Args:
             cache_file: Optional path to cache file. If None, uses self.cache_file
-            
+
         Returns:
             True if cache was updated successfully, False otherwise
         """
         if cache_file is None:
             cache_file = self.cache_file
-        
+
         logger.info("Starting incremental cache update")
-        
+
         # Try to load existing cache
         cache_loaded = self.load_cache(cache_file)
         if not cache_loaded:
             logger.info("No valid cache found, performing full rebuild")
             self.build_cache()
             return self.save_cache(cache_file)
-        
+
         # Get current file list with modification times
         audio_extensions = {'.flac', '.mp3', '.m4a', '.ogg', '.opus', '.wma', '.aac'}
         current_files = {}
-        
+
         logger.info(f"Scanning music library for changes: {self.music_dir}")
         for root, _, files in os.walk(self.music_dir):
             for file in files:
@@ -399,15 +399,15 @@ class MusicLibraryCache:
                         current_files[str(file_path)] = mtime
                     except OSError:
                         continue
-        
+
         # Identify changes
         cached_files = set(self.cache.keys())
         current_file_set = set(current_files.keys())
-        
+
         new_files = current_file_set - cached_files
         deleted_files = cached_files - current_file_set
         potentially_modified = cached_files & current_file_set
-        
+
         # Check for actual modifications (mtime changed)
         modified_files = set()
         for file_path in potentially_modified:
@@ -423,37 +423,37 @@ class MusicLibraryCache:
                         modified_files.add(file_path)
             except (OSError, KeyError):
                 modified_files.add(file_path)
-        
+
         # Log changes
         total_changes = len(new_files) + len(modified_files) + len(deleted_files)
         if total_changes == 0:
             logger.info("No changes detected, cache is up to date")
             return True
-        
+
         logger.info(f"Changes detected:")
         logger.info(f"  New files: {len(new_files)}")
         logger.info(f"  Modified files: {len(modified_files)}")
         logger.info(f"  Deleted files: {len(deleted_files)}")
-        
+
         # Remove deleted files from cache
         for file_path in deleted_files:
             if file_path in self.cache:
                 metadata = self.cache[file_path]
                 del self.cache[file_path]
-                
+
                 # Remove from album artist index
                 albumartist_norm = metadata.get('albumartist_norm', '')
                 if albumartist_norm and albumartist_norm in self.album_artist_index:
                     if file_path in self.album_artist_index[albumartist_norm]:
                         self.album_artist_index[albumartist_norm].remove(file_path)
-        
+
         # Process new and modified files
         files_to_process = new_files | modified_files
         processed_count = 0
-        
+
         for file_path_str in sorted(files_to_process):
             file_path = Path(file_path_str)
-            
+
             # Remove old entry if it exists (for modified files)
             if file_path_str in self.cache:
                 old_metadata = self.cache[file_path_str]
@@ -461,25 +461,25 @@ class MusicLibraryCache:
                 if old_albumartist_norm and old_albumartist_norm in self.album_artist_index:
                     if file_path_str in self.album_artist_index[old_albumartist_norm]:
                         self.album_artist_index[old_albumartist_norm].remove(file_path_str)
-            
+
             # Extract new metadata
             metadata = self.extract_metadata(file_path)
             if metadata:
                 self.cache[file_path_str] = metadata
-                
+
                 # Update album artist index
                 albumartist_norm = metadata['albumartist_norm']
                 if albumartist_norm:
                     self.album_artist_index[albumartist_norm].append(file_path_str)
-                
+
                 processed_count += 1
                 if processed_count % 100 == 0:
                     logger.info(f"Processed {processed_count}/{len(files_to_process)} changed files...")
-        
+
         logger.info(f"Cache update complete: processed {processed_count} files")
         logger.info(f"Total files in cache: {len(self.cache)}")
         logger.info(f"Album artists: {len(self.album_artist_index)}")
-        
+
         # Save updated cache
         return self.save_cache(cache_file)
 
@@ -496,7 +496,7 @@ class MusicLibraryCache:
             self.build_cache_from_paths(file_paths)
         else:
             self.build_cache_from_directory()
-        
+
     def find_match(self, title: str, artist: str, album: str = "") -> Tuple[Optional[str], Optional[str]]:
         """Find matching file in cache based on metadata
 
@@ -718,10 +718,10 @@ class PlaylistMatcher:
 
     def detect_playlist_format(self, lines: List[str]) -> str:
         """Detect playlist format (m3u8 or text)
-        
+
         Args:
             lines: Playlist file lines
-            
+
         Returns:
             'm3u8' or 'text'
         """
@@ -732,23 +732,23 @@ class PlaylistMatcher:
                 continue
             if line.startswith('#EXTM3U') or line.startswith('#EXTINF'):
                 return 'm3u8'
-        
+
         # If no M3U8 markers found, assume simple text format
         return 'text'
-    
+
     def parse_text_entry(self, line: str) -> Optional[Tuple[str, str, str]]:
         """Parse simple text playlist entry (Artist - Title format)
-        
+
         Args:
             line: Text line in format "Artist - Title"
-            
+
         Returns:
             Tuple of (artist, title, album) or None if parsing fails
         """
         line = line.strip()
         if not line or line.startswith('#'):
             return None
-        
+
         # Split on ' - ' to get artist and title
         if ' - ' in line:
             parts = line.split(' - ', 1)
@@ -756,7 +756,7 @@ class PlaylistMatcher:
             title = parts[1].strip()
             album = ''  # No album info in simple text format
             return artist, title, album
-        
+
         return None
 
     def parse_playlist_entry(self, extinf_line: str, path_line: str) -> Optional[Tuple[str, str, str, str]]:
@@ -801,16 +801,16 @@ class PlaylistMatcher:
             file_paths: Optional list of file paths. If None, scans music_dir
         """
         logger.info("Step 1: Building library cache")
-        
+
         # Try to load cache if enabled
         cache_loaded = False
         if self.use_cache and not self.force_rebuild:
             cache_loaded = self.cache.load_cache(force_rebuild=self.force_rebuild)
-        
+
         # Build cache if not loaded or force rebuild
         if not cache_loaded:
             self.cache.build_cache(file_paths)
-            
+
             # Save cache if enabled
             if self.use_cache:
                 self.cache.save_cache()
@@ -843,7 +843,7 @@ class PlaylistMatcher:
             Tuple of (matched_entries, unmatched_entries)
         """
         logger.info("Step 3: Finding matches for playlist entries")
-        
+
         # Detect playlist format
         playlist_format = self.detect_playlist_format(playlist_lines)
         logger.info(f"Detected playlist format: {playlist_format}")
@@ -893,17 +893,17 @@ class PlaylistMatcher:
                         i += 1
                 else:
                     i += 1
-        
+
         else:  # text format
             # Process simple text format (Artist - Title per line)
             for line in playlist_lines:
                 parsed = self.parse_text_entry(line)
                 if parsed:
                     artist, title, album = parsed
-                    
+
                     # Find match in library
                     matched_path, failure_reason = self.cache.find_match(title, artist, album)
-                    
+
                     if matched_path:
                         # Convert to relative path from music directory
                         rel_path = Path(matched_path).relative_to(self.music_dir)
@@ -915,7 +915,7 @@ class PlaylistMatcher:
                         # Log detailed failure reason
                         logger.warning(f"✗ No match: {artist} - {title}")
                         logger.warning(f"Reason: {failure_reason}")
-                        
+
                         unmatched_entries.append({
                             'artist': artist,
                             'title': title,
@@ -934,23 +934,23 @@ class PlaylistMatcher:
             matched_entries: List of (extinf_line, path) tuples
         """
         logger.info(f"Step 4: Writing new playlist: {self.output_path}")
-        
+
         # Remove duplicates based on metadata (artist + title)
         seen_tracks = set()
         unique_entries = []
         duplicates_removed = 0
-        
+
         for extinf, path in matched_entries:
             # Extract metadata from EXTINF line
             # Format: #EXTINF:duration,Artist - Title
             metadata_key = None
-            
+
             if extinf.startswith('#EXTINF:'):
                 # Parse EXTINF line
                 parts = extinf.split(',', 1)
                 if len(parts) == 2:
                     metadata_str = parts[1].strip()
-                    
+
                     # Try to get metadata from the file itself for more accuracy
                     full_path = self.path_prefix + path
                     if os.path.exists(full_path):
@@ -964,7 +964,7 @@ class PlaylistMatcher:
                                     metadata_key = f"{artist_norm}|||{title_norm}"
                         except Exception as e:
                             logger.debug(f"Could not read metadata from {path}: {e}")
-                    
+
                     # Fallback to EXTINF line parsing if file metadata not available
                     if not metadata_key and ' - ' in metadata_str:
                         artist, title = metadata_str.split(' - ', 1)
@@ -972,7 +972,7 @@ class PlaylistMatcher:
                         title_norm = self.cache.normalize_string(title)
                         if artist_norm and title_norm:
                             metadata_key = f"{artist_norm}|||{title_norm}"
-            
+
             # Check for duplicate
             if metadata_key:
                 if metadata_key in seen_tracks:
@@ -980,9 +980,9 @@ class PlaylistMatcher:
                     logger.debug(f"Removing duplicate: {metadata_key}")
                     continue
                 seen_tracks.add(metadata_key)
-            
+
             unique_entries.append((extinf, path))
-        
+
         # Write unique entries to playlist
         with open(self.output_path, 'w', encoding='utf-8') as f:
             f.write('#EXTM3U\n')
@@ -1004,7 +1004,7 @@ class PlaylistMatcher:
         logger.info(f"Step 6: Copying matched songs to: {location}")
 
         Path(location).mkdir(parents=True, exist_ok=True)
-        
+
         N = len(matched_entries) - 1
         i = 0
 
@@ -1020,7 +1020,7 @@ class PlaylistMatcher:
             else:
                 message += f" Copying: {source} -> {destination}"
                 shutil.copyfile(source, destination)
-                
+
             logger.info(message)
             i += 1
 
@@ -1193,7 +1193,7 @@ Examples:
         if cache.clear_cache():
             logger.info("Cache cleared successfully")
         sys.exit(0)
-    
+
     # Handle cache update
     if args.update_cache:
         cache_file = args.cache_file if args.cache_file else os.path.join(args.music_dir, MusicLibraryCache.CACHE_FILENAME)
