@@ -1011,14 +1011,14 @@ class PlaylistMatcher:
         for _, path in matched_entries:
             message : str = "(" + str(i) + "/" + str(N) + ")"
 
-            source = self.path_prefix + path
+            source = self.output_path.parent.__str__() + "\\" + self.path_prefix + path
             destination = location + path
 
             Path(Path(destination).parent).mkdir(parents=True, exist_ok=True)
             if Path(destination).exists():
-                message += " File already exists, skipping: {destination}"
+                message += f" File already exists, skipping: {destination}"
             else:
-                message += " Copying: {source} -> {destination}"
+                message += f" Copying: {source} -> {destination}"
                 shutil.copyfile(source, destination)
                 
             logger.info(message)
