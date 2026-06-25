@@ -22,7 +22,7 @@ import shutil
 # Add parent directory to path to import the module
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from find_albums_on_streaming import StreamingSearcher, MusicLibraryScanner
+from find_albums_on_streaming import StreamingSearcher, MusicLibraryScanner, StreamingServiceFinder
 
 
 class TestStreamingSearcher(unittest.TestCase):
@@ -189,6 +189,123 @@ class TestStreamingSearcher(unittest.TestCase):
         self.assertIsNotNone(url)
         if url:  # Type guard for type checker
             self.assertIn('music.apple.com', url)
+
+    def test_is_direct_link_spotify(self):
+        """Test URL type detection for Spotify."""
+        # Direct link
+        self.assertTrue(self.searcher.is_direct_link(
+            'https://open.spotify.com/album/2ANVost0y2y52ema1E9xAZ', 'spotify'))
+        # Search link
+        self.assertFalse(self.searcher.is_direct_link(
+            'https://open.spotify.com/search/Michael+Jackson+Thriller/albums', 'spotify'))
+
+    def test_is_direct_link_deezer(self):
+        """Test URL type detection for Deezer."""
+        # Direct link
+        self.assertTrue(self.searcher.is_direct_link(
+            'https://www.deezer.com/album/72819', 'deezer'))
+        # Search link
+        self.assertFalse(self.searcher.is_direct_link(
+            'https://www.deezer.com/search/Michael+Jackson+Thriller/album', 'deezer'))
+
+    def test_is_direct_link_apple_music(self):
+        """Test URL type detection for Apple Music."""
+        # Direct link
+        self.assertTrue(self.searcher.is_direct_link(
+            'https://music.apple.com/us/album/thriller/1234567', 'apple_music'))
+        # Search link
+        self.assertFalse(self.searcher.is_direct_link(
+            'https://music.apple.com/us/search?term=Michael+Jackson+Thriller', 'apple_music'))
+
+    def test_is_direct_link_other_services(self):
+        """Test URL type detection for other services (all search URLs)."""
+        # Tidal, Qobuz, Amazon Music only return search URLs
+        self.assertFalse(self.searcher.is_direct_link(
+            'https://listen.tidal.com/search?q=test', 'tidal'))
+        self.assertFalse(self.searcher.is_direct_link(
+            'https://www.qobuz.com/us-en/search?q=test', 'qobuz'))
+        self.assertFalse(self.searcher.is_direct_link(
+            'https://music.amazon.com/search/test', 'amazon_music'))
+
+    def test_is_service_available_no_timeout(self):
+        """Test service availability when no timeout is set."""
+        self.assertTrue(self.searcher.is_service_available('spotify'))
+        self.assertTrue(self.searcher.is_service_available('deezer'))
+
+    def test_is_service_available_with_timeout(self):
+        """Test service availability when timeout is active."""
+        from datetime import datetime, timedelta
+        
+        # Set timeout for 1 second in the future
+        self.searcher.service_timeouts['spotify'] = datetime.now() + timedelta(seconds=1)
+        self.assertFalse(self.searcher.is_service_available('spotify'))
+        
+        # Set timeout in the past (expired)
+        self.searcher.service_timeouts['deezer'] = datetime.now() - timedelta(seconds=1)
+        self.assertTrue(self.searcher.is_service_available('deezer'))
+
+    def test_set_service_timeout(self):
+        """Test setting service timeout."""
+        from datetime import datetime
+        
+        self.searcher.set_service_timeout('spotify')
+        self.assertIn('spotify', self.searcher.service_timeouts)
+        
+        # Check timeout is in the future
+        timeout = self.searcher.service_timeouts['spotify']
+        self.assertGreater(timeout, datetime.now())
+
+    def test_handle_rate_limit(self):
+        """Test rate limit handling."""
+        from collections import deque
+        
+        self.searcher.handle_rate_limit('spotify', 'Test Artist', 'Test Album')
+        
+        # Check timeout was set
+        self.assertIn('spotify', self.searcher.service_timeouts)
+        
+        # Check item was queued
+        self.assertIn('spotify', self.searcher.retry_queues)
+        self.assertEqual(len(self.searcher.retry_queues['spotify']), 1)
+        
+        # Check queued item
+        queued_item = self.searcher.retry_queues['spotify'][0]
+        self.assertEqual(queued_item, ('Test Artist', 'Test Album'))
+
+    @patch('find_albums_on_streaming.requests.Session.get')
+    def test_search_spotify_rate_limit(self, mock_get):
+        """Test Spotify search handles rate limiting."""
+        # Set up mock response with 429 status
+        mock_response = Mock()
+        mock_response.status_code = 429
+        mock_get.return_value = mock_response
+        
+        # Set token to enable API search
+        self.searcher.spotify_token = 'test_token'
+        
+        url = self.searcher.search_spotify('Test Artist', 'Test Album')
+        
+        # Should return None when rate limited
+        self.assertIsNone(url)
+        
+        # Check timeout was set
+        self.assertIn('spotify', self.searcher.service_timeouts)
+
+    @patch('find_albums_on_streaming.requests.Session.get')
+    def test_search_deezer_rate_limit(self, mock_get):
+        """Test Deezer search handles rate limiting."""
+        # Set up mock response with 429 status
+        mock_response = Mock()
+        mock_response.status_code = 429
+        mock_get.return_value = mock_response
+        
+        url = self.searcher.search_deezer('Test Artist', 'Test Album')
+        
+        # Should return None when rate limited
+        self.assertIsNone(url)
+        
+        # Check timeout was set
+        self.assertIn('deezer', self.searcher.service_timeouts)
 
 
 class TestMusicLibraryScanner(unittest.TestCase):
@@ -403,6 +520,198 @@ class TestIntegration(unittest.TestCase):
 
         # Should find both albums
         self.assertEqual(len(results), 2)
+
+
+class TestStreamingServiceFinder(unittest.TestCase):
+    """Test StreamingServiceFinder class with caching and incremental saving."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.test_dir = tempfile.mkdtemp()
+        self.output_dir = tempfile.mkdtemp()
+        
+        # Create test library structure
+        test_albums = [
+            ('Test Artist 1', 'Test Album 1'),
+            ('Test Artist 2', 'Test Album 2')
+        ]
+        
+        for artist, album in test_albums:
+            artist_dir = Path(self.test_dir) / artist
+            album_dir = artist_dir / album
+            album_dir.mkdir(parents=True)
+            (album_dir / '01 - 01 - Track - Artist - Album.flac').touch()
+
+    def tearDown(self):
+        """Clean up temporary directories."""
+        shutil.rmtree(self.test_dir, ignore_errors=True)
+        shutil.rmtree(self.output_dir, ignore_errors=True)
+
+    def test_init(self):
+        """Test StreamingServiceFinder initialization."""
+        finder = StreamingServiceFinder(
+            music_dir=self.test_dir,
+            output_dir=self.output_dir
+        )
+        
+        self.assertEqual(finder.music_dir, self.test_dir)
+        self.assertEqual(finder.output_dir, Path(self.output_dir))
+        self.assertIsNotNone(finder.searcher)
+        self.assertIsNotNone(finder.scanner)
+        self.assertTrue(finder.cache_dir.exists())
+
+    def test_cache_loading(self):
+        """Test cache loading from disk."""
+        finder = StreamingServiceFinder(
+            music_dir=self.test_dir,
+            output_dir=self.output_dir
+        )
+        
+        # Initially empty
+        self.assertEqual(len(finder.album_cache.get('spotify', set())), 0)
+        
+        # Create a cache file
+        cache_file = finder.cache_dir / 'spotify_albums.json'
+        with open(cache_file, 'w') as f:
+            json.dump([['Artist', 'Album']], f)
+        
+        # Reload
+        finder._load_caches()
+        self.assertEqual(len(finder.album_cache['spotify']), 1)
+        self.assertIn(('Artist', 'Album'), finder.album_cache['spotify'])
+
+    def test_save_cache(self):
+        """Test saving cache to disk."""
+        finder = StreamingServiceFinder(
+            music_dir=self.test_dir,
+            output_dir=self.output_dir
+        )
+        
+        # Save an album to cache
+        finder._save_cache('spotify', 'album', ('Test Artist', 'Test Album'))
+        
+        # Check cache file was created
+        cache_file = finder.cache_dir / 'spotify_albums.json'
+        self.assertTrue(cache_file.exists())
+        
+        # Check content
+        with open(cache_file, 'r') as f:
+            data = json.load(f)
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0], ['Test Artist', 'Test Album'])
+
+    def test_is_cached(self):
+        """Test cache checking."""
+        finder = StreamingServiceFinder(
+            music_dir=self.test_dir,
+            output_dir=self.output_dir
+        )
+        
+        # Not cached initially
+        self.assertFalse(finder._is_cached('spotify', 'album', ('Artist', 'Album')))
+        
+        # Add to cache
+        finder._save_cache('spotify', 'album', ('Artist', 'Album'))
+        
+        # Should be cached now
+        self.assertTrue(finder._is_cached('spotify', 'album', ('Artist', 'Album')))
+
+    def test_append_to_output_file_direct_link(self):
+        """Test appending direct links to output files."""
+        finder = StreamingServiceFinder(
+            music_dir=self.test_dir,
+            output_dir=self.output_dir
+        )
+        
+        # Append a direct link
+        direct_url = 'https://www.deezer.com/album/12345'
+        finder._append_to_output_file('deezer', 'album', direct_url)
+        
+        # Check file was created and contains URL
+        output_file = finder.output_dir / 'albums' / 'deezer.txt'
+        self.assertTrue(output_file.exists())
+        
+        with open(output_file, 'r') as f:
+            content = f.read()
+        self.assertIn(direct_url, content)
+
+    def test_append_to_output_file_search_link(self):
+        """Test that search links are not written to output files."""
+        finder = StreamingServiceFinder(
+            music_dir=self.test_dir,
+            output_dir=self.output_dir
+        )
+        
+        # Try to append a search link
+        search_url = 'https://open.spotify.com/search/test/albums'
+        finder._append_to_output_file('spotify', 'album', search_url)
+        
+        # Check file was not created (search links filtered out)
+        output_file = finder.output_dir / 'albums' / 'spotify.txt'
+        self.assertFalse(output_file.exists())
+
+    @patch('find_albums_on_streaming.StreamingSearcher.search_deezer')
+    def test_run_with_caching(self, mock_search):
+        """Test that run() uses caching correctly."""
+        # Mock search to return a direct link
+        mock_search.return_value = 'https://www.deezer.com/album/12345'
+        
+        finder = StreamingServiceFinder(
+            music_dir=self.test_dir,
+            output_dir=self.output_dir
+        )
+        
+        # First run - should call search
+        results1 = finder.run(limit=1, verbose=False, search_albums=True, search_artists=False)
+        self.assertEqual(mock_search.call_count, 1)
+        
+        # Second run - should use cache, not call search again
+        finder2 = StreamingServiceFinder(
+            music_dir=self.test_dir,
+            output_dir=self.output_dir
+        )
+        results2 = finder2.run(limit=1, verbose=False, search_albums=True, search_artists=False)
+        
+        # Search should still only have been called once (from first run)
+        self.assertEqual(mock_search.call_count, 1)
+        
+        # Both runs should report finding the album
+        self.assertEqual(results1['album_hits'], 1)
+        self.assertEqual(results2['album_hits'], 1)
+
+    def test_run_albums_only(self):
+        """Test running with albums only."""
+        finder = StreamingServiceFinder(
+            music_dir=self.test_dir,
+            output_dir=self.output_dir
+        )
+        
+        results = finder.run(
+            limit=1,
+            verbose=False,
+            search_albums=True,
+            search_artists=False
+        )
+        
+        self.assertGreater(results['total_albums'], 0)
+        self.assertEqual(results['total_artists'], 0)
+
+    def test_run_artists_only(self):
+        """Test running with artists only."""
+        finder = StreamingServiceFinder(
+            music_dir=self.test_dir,
+            output_dir=self.output_dir
+        )
+        
+        results = finder.run(
+            limit=1,
+            verbose=False,
+            search_albums=False,
+            search_artists=True
+        )
+        
+        self.assertEqual(results['total_albums'], 0)
+        self.assertGreater(results['total_artists'], 0)
 
 
 if __name__ == '__main__':
