@@ -31,6 +31,8 @@ from urllib.parse import quote_plus, urlparse
 import requests
 from datetime import datetime, timedelta
 
+from music_library import AUDIO_EXTENSIONS, scan_albums_in_dir
+
 
 class StreamingSearcher:
     """Search for albums across multiple streaming services with rate limit handling."""
@@ -471,38 +473,12 @@ class MusicLibraryScanner:
             print(f"  ❌ Directory does not exist: {self.music_dir}")
             return self.albums
 
-        # Audio file extensions
-        audio_extensions = {'.flac', '.mp3', '.m4a', '.ogg', '.opus', '.wma', '.aac', '.wav'}
+        artist_set: Set[str] = set()
+        for artist_name, album_name, _ in scan_albums_in_dir(self.music_dir):
+            self.albums.add((artist_name, album_name))
+            artist_set.add(artist_name)
 
-        # Walk through directory structure: album_artist/album/files
-        album_artist_count = 0
-        for album_artist_dir in sorted(self.music_dir.iterdir()):
-            if not album_artist_dir.is_dir():
-                continue
-
-            album_artist_name = album_artist_dir.name
-            album_artist_count += 1
-
-            for album_dir in album_artist_dir.iterdir():
-                if not album_dir.is_dir():
-                    continue
-
-                album_name = album_dir.name
-
-                # Check if directory contains audio files
-                has_audio = any(
-                    f.suffix.lower() in audio_extensions
-                    for f in album_dir.iterdir()
-                    if f.is_file()
-                )
-
-                if has_audio:
-                    self.albums.add((album_artist_name, album_name))
-
-            if album_artist_count % 10 == 0:
-                print(f"  Processed {album_artist_count} album artists...")
-
-        print(f"  ✓ Found {len(self.albums)} unique albums from {album_artist_count} album artists")
+        print(f"  ✓ Found {len(self.albums)} unique albums from {len(artist_set)} album artists")
         return self.albums
 
 
