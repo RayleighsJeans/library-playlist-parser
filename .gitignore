@@ -60,3 +60,6 @@ streaming_search.log
 # OS
 .DS_Store
 Thumbs.db
+
+# Scripts results
+streaming_results
