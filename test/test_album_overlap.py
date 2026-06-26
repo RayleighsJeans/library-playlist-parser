@@ -320,6 +320,14 @@ class TestFindOverlappingAlbums(unittest.TestCase):
         self.assertEqual(len(results), 1)
         self.assertAlmostEqual(results[0]["overlap"], 1.0)
         self.assertEqual(results[0]["album_artist"], "Artist")
+        # new fields must be present
+        self.assertIn("keep",       results[0])
+        self.assertIn("path_a",     results[0])
+        self.assertIn("path_b",     results[0])
+        self.assertIn("year_a",     results[0])
+        self.assertIn("year_b",     results[0])
+        self.assertIn("duration_a", results[0])
+        self.assertIn("duration_b", results[0])
 
     def test_no_overlap_not_reported(self):
         """Albums with completely different tracks produce no results."""
@@ -446,6 +454,9 @@ class TestFindOverlappingAlbums(unittest.TestCase):
             "album_artist", "album_a", "album_b",
             "overlap", "common_tracks", "total_tracks",
             "tracks_a", "tracks_b",
+            # new fields
+            "path_a", "path_b", "year_a", "year_b",
+            "duration_a", "duration_b", "keep",
         }
         self.assertTrue(required.issubset(results[0].keys()))
 
@@ -484,6 +495,13 @@ class TestReportWriters(unittest.TestCase):
                 "total_tracks":  12,
                 "tracks_a":      12,
                 "tracks_b":      15,
+                "path_a":        "/Music/Radiohead/OK Computer",
+                "path_b":        "/Music/Radiohead/OK Computer OKNOTOK",
+                "year_a":        1997,
+                "year_b":        2017,
+                "duration_a":    2580.0,
+                "duration_b":    3120.0,
+                "keep":          "b",
             }
         ]
 
@@ -498,6 +516,49 @@ class TestReportWriters(unittest.TestCase):
         self.assertIn("Radiohead", content)
         self.assertIn("75%", content)
         self.assertIn("9 common", content)
+
+    def test_text_report_shows_paths(self):
+        p = self.tmp / "paths.txt"
+        ao.write_text_report(self.sample, p)
+        content = p.read_text(encoding='utf-8')
+        self.assertIn("/Music/Radiohead/OK Computer", content)
+        self.assertIn("/Music/Radiohead/OK Computer OKNOTOK", content)
+
+    def test_text_report_shows_years(self):
+        p = self.tmp / "years.txt"
+        ao.write_text_report(self.sample, p)
+        content = p.read_text(encoding='utf-8')
+        self.assertIn("1997", content)
+        self.assertIn("2017", content)
+
+    def test_text_report_shows_keep_label(self):
+        p = self.tmp / "keep.txt"
+        ao.write_text_report(self.sample, p)
+        content = p.read_text(encoding='utf-8')
+        # keep='b' → label should mention album_b name
+        self.assertIn("OK Computer OKNOTOK", content)
+        self.assertIn("keep", content.lower())
+
+    def test_text_report_keep_a(self):
+        sample = [{**self.sample[0], "keep": "a"}]
+        p = self.tmp / "keep_a.txt"
+        ao.write_text_report(sample, p)
+        content = p.read_text(encoding='utf-8')
+        self.assertIn("→ keep: 'OK Computer'", content)
+
+    def test_text_report_keep_either(self):
+        sample = [{**self.sample[0], "keep": "either"}]
+        p = self.tmp / "either.txt"
+        ao.write_text_report(sample, p)
+        content = p.read_text(encoding='utf-8')
+        self.assertIn("either", content)
+
+    def test_text_report_unknown_year_shown_as_question_mark(self):
+        sample = [{**self.sample[0], "year_a": 0, "year_b": 0}]
+        p = self.tmp / "unknown_year.txt"
+        ao.write_text_report(sample, p)
+        content = p.read_text(encoding='utf-8')
+        self.assertIn("year=?", content)
 
     def test_json_report_created(self):
         p = self.tmp / "report.json"
@@ -519,6 +580,146 @@ class TestReportWriters(unittest.TestCase):
         self.assertTrue(p.exists())
         content = p.read_text(encoding='utf-8')
         self.assertIn("Album Overlap Report", content)
+
+
+# ---------------------------------------------------------------------------
+# get_album_stats
+# ---------------------------------------------------------------------------
+
+class TestGetAlbumStats(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+
+    def _make_cache(self, file_meta: dict) -> MagicMock:
+        mock = MagicMock()
+        mock.cache = file_meta
+        mock.extract_metadata.return_value = None
+        return mock
+
+    def test_empty_dir_returns_zero_stats(self):
+        d = self.tmp / "empty"
+        d.mkdir()
+        cache = self._make_cache({})
+        with patch.object(ao, 'get_duration', return_value=None):
+            stats = ao.get_album_stats(d, cache)
+        self.assertEqual(stats["track_count"],    0)
+        self.assertEqual(stats["total_duration"], 0.0)
+        self.assertEqual(stats["year"],           0)
+        self.assertEqual(stats["path"],           str(d))
+
+    def test_counts_audio_files_only(self):
+        d = self.tmp / "album"
+        d.mkdir()
+        (d / "01 - track.flac").touch()
+        (d / "02 - track.flac").touch()
+        (d / "cover.jpg").touch()
+        cache = self._make_cache({})
+        with patch.object(ao, 'get_duration', return_value=200.0):
+            stats = ao.get_album_stats(d, cache)
+        self.assertEqual(stats["track_count"], 2)
+
+    def test_sums_durations(self):
+        d = self.tmp / "album"
+        d.mkdir()
+        for i in (1, 2, 3):
+            (d / f"{i:02d} - track.flac").touch()
+        cache = self._make_cache({})
+        with patch.object(ao, 'get_duration', return_value=100.0):
+            stats = ao.get_album_stats(d, cache)
+        self.assertAlmostEqual(stats["total_duration"], 300.0, places=0)
+
+    def test_year_from_cached_date_tag(self):
+        d = self.tmp / "album"
+        d.mkdir()
+        f = d / "01 - track.flac"
+        f.touch()
+        cache = self._make_cache({str(f): {**_cached_meta("T"), "date": "2001"}})
+        with patch.object(ao, 'get_duration', return_value=0.0):
+            stats = ao.get_album_stats(d, cache)
+        self.assertEqual(stats["year"], 2001)
+
+    def test_year_from_album_dir_name_fallback(self):
+        """When no date tag exists, parse year from the directory name."""
+        d = self.tmp / "OK Computer (1997 Remaster)"
+        d.mkdir()
+        f = d / "01 - track.flac"
+        f.touch()
+        cache = self._make_cache({})   # no tags cached
+        with patch.object(ao, 'get_duration', return_value=0.0):
+            with patch.object(ao, 'MutagenFile', return_value=None):
+                stats = ao.get_album_stats(d, cache)
+        self.assertEqual(stats["year"], 1997)
+
+    def test_year_is_minimum_across_tracks(self):
+        """If tracks have different years (edge case), take the minimum."""
+        d = self.tmp / "album"
+        d.mkdir()
+        f1 = d / "01 - t.flac"
+        f2 = d / "02 - t.flac"
+        f1.touch(); f2.touch()
+        cache = self._make_cache({
+            str(f1): {**_cached_meta("T"), "date": "2005"},
+            str(f2): {**_cached_meta("T2"), "date": "1997"},
+        })
+        with patch.object(ao, 'get_duration', return_value=0.0):
+            stats = ao.get_album_stats(d, cache)
+        self.assertEqual(stats["year"], 1997)
+
+
+# ---------------------------------------------------------------------------
+# _keep_recommendation
+# ---------------------------------------------------------------------------
+
+class TestKeepRecommendation(unittest.TestCase):
+    def _s(self, tracks=10, year=2000, duration=3000.0) -> dict:
+        return {"track_count": tracks, "year": year, "total_duration": duration}
+
+    def test_more_tracks_wins(self):
+        self.assertEqual(ao._keep_recommendation(self._s(12), self._s(10)), 'a')
+        self.assertEqual(ao._keep_recommendation(self._s(10), self._s(12)), 'b')
+
+    def test_newer_year_breaks_track_tie(self):
+        self.assertEqual(ao._keep_recommendation(self._s(10, 2020), self._s(10, 1997)), 'a')
+        self.assertEqual(ao._keep_recommendation(self._s(10, 1997), self._s(10, 2020)), 'b')
+
+    def test_unknown_year_loses_to_known(self):
+        self.assertEqual(ao._keep_recommendation(self._s(10, 1997), self._s(10, 0)),   'a')
+        self.assertEqual(ao._keep_recommendation(self._s(10, 0),    self._s(10, 1997)), 'b')
+
+    def test_longer_duration_breaks_full_tie(self):
+        self.assertEqual(ao._keep_recommendation(
+            self._s(10, 2000, 4000.0), self._s(10, 2000, 2000.0)
+        ), 'a')
+
+    def test_exact_tie_returns_either(self):
+        self.assertEqual(ao._keep_recommendation(self._s(), self._s()), 'either')
+
+    def test_duration_tolerance_one_second(self):
+        """Differences ≤ 1 second are treated as ties."""
+        self.assertEqual(ao._keep_recommendation(
+            self._s(10, 2000, 3000.5), self._s(10, 2000, 3000.0)
+        ), 'either')
+
+
+# ---------------------------------------------------------------------------
+# _fmt_duration
+# ---------------------------------------------------------------------------
+
+class TestFmtDuration(unittest.TestCase):
+    def test_minutes_seconds(self):
+        self.assertEqual(ao._fmt_duration(185.0), "3:05")
+
+    def test_hours_minutes_seconds(self):
+        self.assertEqual(ao._fmt_duration(3661.0), "1:01:01")
+
+    def test_zero(self):
+        self.assertEqual(ao._fmt_duration(0.0), "0:00")
+
+    def test_exactly_one_hour(self):
+        self.assertEqual(ao._fmt_duration(3600.0), "1:00:00")
 
 
 if __name__ == '__main__':

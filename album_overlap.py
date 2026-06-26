@@ -48,6 +48,7 @@ CLI::
 import hashlib
 import json
 import logging
+import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -133,6 +134,127 @@ def make_track_fingerprint(
     dur = _bucket(duration_seconds, duration_bucket)
     raw = f"{effective_title}|{artist_norm}|{dur}"
     return hashlib.md5(raw.encode()).hexdigest()[:8]
+
+
+# ---------------------------------------------------------------------------
+# Album stats (tracks, year, total duration)
+# ---------------------------------------------------------------------------
+
+def get_album_stats(
+    album_dir: Path,
+    cache: MusicLibraryCache,
+) -> Dict:
+    """
+    Collect summary statistics for an album directory.
+
+    Reads track count, total duration, and release year for the album.  Year
+    is sourced from the ``date`` tag (preferring the earliest non-zero value
+    found across all tracks).  Duration is summed from ``audio.info.length``
+    for every audio file in the directory.
+
+    Args:
+        album_dir: Path to the album directory.
+        cache:     A populated :class:`~playlist_matcher.MusicLibraryCache`.
+
+    Returns:
+        Dict with keys:
+
+        .. code-block:: python
+
+            {
+              "path":           str,   # absolute album directory
+              "track_count":    int,
+              "total_duration": float, # seconds (0.0 when unreadable)
+              "year":           int,   # 0 when unknown
+            }
+    """
+    track_count = 0
+    total_duration = 0.0
+    years: List[int] = []
+
+    _year_re = re.compile(r'\b(1[0-9]{3}|20[0-9]{2})\b')
+
+    for f in sorted(album_dir.iterdir()):
+        if not f.is_file() or f.suffix.lower() not in AUDIO_EXTENSIONS:
+            continue
+
+        track_count += 1
+
+        # Duration — always read from file (not stored in cache)
+        dur = get_duration(f)
+        if dur:
+            total_duration += dur
+
+        # Year — pull from cache first, then file, then filename
+        year_raw = ''
+        cached = cache.cache.get(str(f))
+        if cached:
+            year_raw = cached.get('date', '') or cached.get('year', '')
+        if not year_raw:
+            try:
+                audio = MutagenFile(str(f), easy=True)
+                if audio:
+                    year_raw = (audio.get('date', ['']) or [''])[0]
+            except Exception:
+                pass
+        if not year_raw:
+            # Last resort: parse a 4-digit year from the album directory name
+            year_raw = album_dir.name
+
+        m = _year_re.search(str(year_raw))
+        if m:
+            years.append(int(m.group(1)))
+
+    year = min(years) if years else 0
+
+    return {
+        "path":           str(album_dir),
+        "track_count":    track_count,
+        "total_duration": round(total_duration, 1),
+        "year":           year,
+    }
+
+
+def _keep_recommendation(stats_a: Dict, stats_b: Dict) -> str:
+    """
+    Return ``'a'``, ``'b'``, or ``'either'`` based on which album is the
+    better candidate to keep.
+
+    Decision order (first decisive criterion wins):
+
+    1. **More tracks** — more content is generally better.
+    2. **Newer release year** — remaster / deluxe editions are usually preferable.
+    3. **Longer total duration** — small secondary signal (bonus tracks, etc.).
+    4. Tie → ``'either'``.
+    """
+    tc_a, tc_b = stats_a["track_count"], stats_b["track_count"]
+    yr_a, yr_b = stats_a["year"],        stats_b["year"]
+    td_a, td_b = stats_a["total_duration"], stats_b["total_duration"]
+
+    # 1. More tracks
+    if tc_a > tc_b:
+        return 'a'
+    if tc_b > tc_a:
+        return 'b'
+
+    # 2. Newer year (ignore zeros — means unknown)
+    if yr_a and yr_b:
+        if yr_a > yr_b:
+            return 'a'
+        if yr_b > yr_a:
+            return 'b'
+    elif yr_a and not yr_b:
+        return 'a'
+    elif yr_b and not yr_a:
+        return 'b'
+
+    # 3. Longer total duration
+    if td_a > td_b + 1:   # 1-second tolerance
+        return 'a'
+    if td_b > td_a + 1:
+        return 'b'
+
+    return 'either'
 
 
 # ---------------------------------------------------------------------------
@@ -270,20 +392,22 @@ def find_overlapping_albums(
 
         logger.debug(f"Comparing {len(albums)} albums for: {artist_name}")
 
-        # Build fingerprint set once per album (cache the set, not the cache)
-        fp_cache: Dict[str, FrozenSet[str]] = {}
+        # Build fingerprint set + stats once per album
+        fp_cache:    Dict[str, FrozenSet[str]] = {}
+        stats_cache: Dict[str, Dict]           = {}
         for album_name, album_dir in albums:
-            fp_cache[album_name] = build_track_fingerprints(
-                album_dir, lib_cache, duration_bucket
-            )
+            fp_cache[album_name]    = build_track_fingerprints(album_dir, lib_cache, duration_bucket)
+            stats_cache[album_name] = get_album_stats(album_dir, lib_cache)
 
         # All unique pairs
         for i in range(len(albums)):
             for j in range(i + 1, len(albums)):
-                name_a, _ = albums[i]
-                name_b, _ = albums[j]
-                fps_a = fp_cache[name_a]
-                fps_b = fp_cache[name_b]
+                name_a, dir_a = albums[i]
+                name_b, dir_b = albums[j]
+                fps_a  = fp_cache[name_a]
+                fps_b  = fp_cache[name_b]
+                stat_a = stats_cache[name_a]
+                stat_b = stats_cache[name_b]
 
                 if not fps_a or not fps_b:
                     continue
@@ -292,19 +416,29 @@ def find_overlapping_albums(
                 if score >= threshold:
                     common = len(fps_a & fps_b)
                     total  = len(fps_a | fps_b)
+                    keep   = _keep_recommendation(stat_a, stat_b)
                     results.append({
-                        "album_artist":  artist_name,
-                        "album_a":       name_a,
-                        "album_b":       name_b,
-                        "overlap":       round(score, 4),
-                        "common_tracks": common,
-                        "total_tracks":  total,
-                        "tracks_a":      len(fps_a),
-                        "tracks_b":      len(fps_b),
+                        "album_artist":    artist_name,
+                        "album_a":         name_a,
+                        "album_b":         name_b,
+                        "overlap":         round(score, 4),
+                        "common_tracks":   common,
+                        "total_tracks":    total,
+                        "tracks_a":        len(fps_a),
+                        "tracks_b":        len(fps_b),
+                        # Per-album stats
+                        "path_a":          stat_a["path"],
+                        "path_b":          stat_b["path"],
+                        "year_a":          stat_a["year"],
+                        "year_b":          stat_b["year"],
+                        "duration_a":      stat_a["total_duration"],
+                        "duration_b":      stat_b["total_duration"],
+                        # Recommendation
+                        "keep":            keep,   # 'a', 'b', or 'either'
                     })
                     logger.info(
                         f"  {artist_name} | {name_a!r} ↔ {name_b!r}: "
-                        f"{score:.0%} overlap ({common}/{total} tracks)"
+                        f"{score:.0%} overlap ({common}/{total} tracks) → keep {keep}"
                     )
 
     results.sort(key=lambda r: r["overlap"], reverse=True)
@@ -320,20 +454,54 @@ def find_overlapping_albums(
 # Report writers
 # ---------------------------------------------------------------------------
 
+def _fmt_duration(seconds: float) -> str:
+    """Format *seconds* as ``H:MM:SS`` or ``M:SS``."""
+    s = int(seconds)
+    h, rem = divmod(s, 3600)
+    m, sec = divmod(rem, 60)
+    if h:
+        return f"{h}:{m:02d}:{sec:02d}"
+    return f"{m}:{sec:02d}"
+
+
 def write_text_report(results: List[Dict], output_path: Path):
     """Write *results* as a human-readable text file."""
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write("Album Overlap Report\n")
         f.write("=" * 70 + "\n\n")
         for r in results:
-            pct = f"{r['overlap']:.0%}"
+            pct  = f"{r['overlap']:.0%}"
+            keep = r.get("keep", "?")
+
+            # Human-readable keep label
+            if keep == 'a':
+                keep_label = f"→ keep: {r['album_a']!r}"
+            elif keep == 'b':
+                keep_label = f"→ keep: {r['album_b']!r}"
+            else:
+                keep_label = "→ keep: either"
+
+            yr_a  = r.get("year_a",     0)
+            yr_b  = r.get("year_b",     0)
+            dur_a = r.get("duration_a", 0.0)
+            dur_b = r.get("duration_b", 0.0)
+            tc_a  = r.get("tracks_a",   r.get("tracks_a", 0))
+            tc_b  = r.get("tracks_b",   r.get("tracks_b", 0))
+
+            def _yr(y: int) -> str: return str(y) if y else "?"
+            def _dur(d: float) -> str: return _fmt_duration(d) if d else "?"
+
             f.write(
                 f"{r['album_artist']}\n"
-                f"  {r['album_a']!r}\n"
-                f"  {r['album_b']!r}\n"
+                f"  A: {r['album_a']!r}\n"
+                f"     {r.get('path_a', '')}\n"
+                f"     tracks={tc_a}  year={_yr(yr_a)}  duration={_dur(dur_a)}\n"
+                f"  B: {r['album_b']!r}\n"
+                f"     {r.get('path_b', '')}\n"
+                f"     tracks={tc_b}  year={_yr(yr_b)}  duration={_dur(dur_b)}\n"
                 f"  overlap: {pct}  "
-                f"({r['common_tracks']} common / {r['total_tracks']} unique tracks, "
-                f"A={r['tracks_a']}  B={r['tracks_b']})\n\n"
+                f"({r['common_tracks']} common / {r['total_tracks']} unique tracks)  "
+                f"{keep_label}\n\n"
             )
     logger.info(f"Text report written to: {output_path}")
 
@@ -392,10 +560,22 @@ def main():
 
     print(f"\nFound {len(results)} album pair(s) with ≥{args.threshold:.0%} overlap\n")
     for r in results:
+        keep = r.get("keep", "?")
+        if keep == 'a':
+            keep_str = f"keep {r['album_a']!r}"
+        elif keep == 'b':
+            keep_str = f"keep {r['album_b']!r}"
+        else:
+            keep_str = "keep either"
+        yr_a = r.get("year_a", 0) or "?"
+        yr_b = r.get("year_b", 0) or "?"
         print(
-            f"  [{r['overlap']:.0%}] {r['album_artist']} — "
-            f"{r['album_a']!r} ↔ {r['album_b']!r}  "
-            f"({r['common_tracks']}/{r['total_tracks']} tracks)"
+            f"  [{r['overlap']:.0%}] {r['album_artist']}\n"
+            f"       A: {r['album_a']!r}  tracks={r['tracks_a']}  year={yr_a}\n"
+            f"       B: {r['album_b']!r}  tracks={r['tracks_b']}  year={yr_b}\n"
+            f"       {keep_str}  ({r['common_tracks']}/{r['total_tracks']} common/unique)\n"
+            f"       A: {r.get('path_a', '')}\n"
+            f"       B: {r.get('path_b', '')}\n"
         )
 
     if args.output:
