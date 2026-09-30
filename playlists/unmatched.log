@@ -1,0 +1,33 @@
+Unmatched Songs Log
+===================
+
+Total songs in playlist: 78
+Matched: 74
+Unmatched: 4
+
+Unmatched Songs:
+--------------------------------------------------------------------------------
+Artist: Nujabes,Shing02
+Title: battlecry
+Album: 
+Original Path: Nujabes,Shing02 - battlecry
+Failure Reason: Found 1 file(s) with matching title; No files found with artist 'Nujabes,Shing02'; Title exists but with different artist
+--------------------------------------------------------------------------------
+Artist: MINMI
+Title: 四季ノ唄
+Album: 
+Original Path: MINMI - 四季ノ唄
+Failure Reason: No files found with title '四季ノ唄'; Found 1 file(s) with matching artist; Artist exists but with different title
+--------------------------------------------------------------------------------
+Artist: TSUTCHIE,kazami
+Title: YOU feat. kazami
+Album: 
+Original Path: TSUTCHIE,kazami - YOU feat. kazami
+Failure Reason: Found 1 file(s) with matching title; No files found with artist 'TSUTCHIE,kazami'; Title exists but with different artist
+--------------------------------------------------------------------------------
+Artist: Force Of Nature,Suiken,S-Word
+Title: 日出ズルSTYLE
+Album: 
+Original Path: Force Of Nature,Suiken,S-Word - 日出ズルSTYLE
+Failure Reason: No files found with title '日出ズルSTYLE'; No files found with artist 'Force Of Nature,Suiken,S-Word'
+--------------------------------------------------------------------------------

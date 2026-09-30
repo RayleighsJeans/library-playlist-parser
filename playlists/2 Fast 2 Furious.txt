@@ -1,0 +1,28 @@
+Download Report - 29/06/2026, 09:01:58
+--------------------------------------------------
+
+[SUCCESS] Start - Ludacris
+[SUCCESS] Act A Fool - Ludacris
+[SUCCESS] Represent - Trick Daddy
+[SUCCESS] Slum - I-20; Shawnna; 2 Chainz
+1. Pick Up The Phone - Tyrese; Ludacris; R. Kelly (2 Fast 2 Furious (Soundtrack))
+   Error: [Tidal] Download failed: all 5 APIs failed. Last error: API returned status code 403: {"detail":"Upstream auth error"} | [Tidal X] Download failed: failed to get Tidal X download URL: Tidal X API returned status 502: {"type":"[redacted endpoint]","title":"Error 502: Bad gateway","status":502,"detail":"The origin web server ret... | [Qobuz] Download failed: track not found for ISRC: USUG10300333 | [Qobuz X] Download failed: track not found for ISRC: USUG10300333 | [Amazon] Download failed: all Amazon Music API endpoints failed: Amazon Music API B returned status 409: {"detail":"Failed to get track manifest: 200 {\"contentResponseList\":[{\"cdnType\":\"UNKNOWN\",\"contentIdentifier\":{\"identifier\":\"B00SYTUI8I\",\"identifierType\":\"ASIN\"},\"contentResponseStatusCode\":\"CONTENT_NOT_ELIGIBLE\",\"contentResponseStatusMessage\":\"Content is not eligible for play... | [Amazon Music X] Download failed: all Amazon Music API endpoints failed: Amazon Music API X returned status 404: {"error":"No playable stream found for the requested regions.","attempts":[{"country":"US","tier":"hd","status":404,"error":"Stream/manifest from Amazon not available (e.g. not entitled in this region or track not streamable)"},{"country":"DE","tier":"hd","status":404,"error":"Stream/manifest from A... | [Deezer] Download failed: all Deezer API endpoints failed: Deezer API A returned status 403: {"error":"Deezer media error 2002: Track token has no sufficient rights on requested media."} | [Deezer X] Download failed: deezer X asset request failed with status 404: {"error":"No disponible"} | [Apple Music] Download failed: Post "[Apple Music API endpoint]": context deadline exceeded ([redacted host] exceeded while awaiting headers)
+   ID: 5zvGov0gUzQNxjUxNsvYGv
+   URL: https://open.spotify.com/track/5zvGov0gUzQNxjUxNsvYGv
+
+[SUCCESS] Hands In The Air - 8Ball
+[SUCCESS] Gettin' It - Chingy
+[SUCCESS] Block Reincarnated - Shawnna; Kardinal Offishall
+[SUCCESS] Pump It Up - Joe Budden
+2. Hell Yeah - Dead Prez (2 Fast 2 Furious (Soundtrack))
+   Error: [Tidal] Download failed: all 5 APIs failed. Last error: API returned status code 403: {"detail":"Upstream auth error"} | [Tidal X] Download failed: failed to get Tidal X download URL: Tidal X API returned status 502: {"type":"[redacted endpoint]","title":"Error 502: Bad gateway","status":502,"detail":"The origin web server ret... | [Qobuz] Download failed: track not found for ISRC: USSM10303079 | [Qobuz X] Download failed: track not found for ISRC: USSM10303079 | [Amazon] Download failed: all Amazon Music API endpoints failed: Amazon Music API E returned status 409: {"detail":"Failed to get track manifest: 200 {\"contentResponseList\":[{\"cdnType\":\"UNKNOWN\",\"contentIdentifier\":{\"identifier\":\"B00SYTV22Y\",\"identifierType\":\"ASIN\"},\"contentResponseStatusCode\":\"CONTENT_NOT_ELIGIBLE\",\"contentResponseStatusMessage\":\"Content is not eligible for play... | [Amazon Music X] Download failed: all Amazon Music API endpoints failed: Amazon Music API X returned status 404: {"error":"No playable stream found for the requested regions.","attempts":[{"country":"US","tier":"hd","status":404,"error":"Stream/manifest from Amazon not available (e.g. not entitled in this region or track not streamable)"},{"country":"DE","tier":"hd","status":404,"error":"Stream/manifest from A... | [Deezer] Download failed: all Deezer API endpoints failed: Deezer API B returned status 403: {"error":"Deezer media error 2002: Track token has no sufficient rights on requested media."} | [Deezer X] Download failed: deezer X asset request failed with status 404: {"error":"No disponible"} | [Apple Music] Download failed: Post "[Apple Music API endpoint]": context deadline exceeded ([redacted host] exceeded while awaiting headers)
+   ID: 0DdOWdYlhf3PWjnUbEgE4R
+   URL: https://open.spotify.com/track/0DdOWdYlhf3PWjnUbEgE4R
+
+[SUCCESS] Peel Off - Jin
+[SUCCESS] We Ridin' - Fat Joe
+[SUCCESS] Rollin' On 20's - Lil' Flip
+[SUCCESS] Fuck What a Nigga Say... - Dirtbag
+[SUCCESS] Oye - Pitbull
+[SUCCESS] Miami - K'Jon
+[SUCCESS] Finish - Ludacris

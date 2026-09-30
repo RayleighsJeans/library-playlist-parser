@@ -1,0 +1,286 @@
+Download Report - 29/06/2026, 11:33:21
+--------------------------------------------------
+
+[SUCCESS] CHOOSE YOUR MACHINE - 90s House Mix - Kohta Takahashi
+[SUCCESS] Pearl Blue Soul - Volant
+[SUCCESS] Lose You - VIP - Lenzman; Cliff
+[SUCCESS] Ridge Racer - DJ Warp
+[SUCCESS] Gran Turismo - DJ Warp
+[SUCCESS] Gear Shifter - Joshua Morse
+[SUCCESS] Womb - DJ Warp
+[SUCCESS] Road Trip - Joshua Morse
+[SUCCESS] Drift - Joshua Morse
+[SUCCESS] Shady Movement - RoBKTA
+[SUCCESS] 4AM - Minus 8
+[SUCCESS] Whiplash - Minus 8
+[SUCCESS] Terminal - RoBKTA
+[SUCCESS] Stardust - Ray Keith
+[SUCCESS] Keep On Keepin On - Loz Contreras
+[SUCCESS] A Midsummernight's Dream - Minus 8
+[SUCCESS] Jinbae's Ride - Joshua Morse
+[SUCCESS] Jet Stream - Nu:Tone; Talc
+[SUCCESS] Airborn - Minus 8
+[SUCCESS] Red Shift - Omni Trio
+[SUCCESS] Rewind - Makoto Remix - London Elektricity
+[SUCCESS] Moon Garage - halc
+[SUCCESS] Invisible - Original - Nu:Tone; 4hero; Natalie Williams
+[SUCCESS] Emileys Smile - Commix
+1. Final Lap - Yuzuru Tomita featuring Takeshi Gonda (Propeller) (グランツーリスモ ロック アレンジ)
+   Error: [Qobuz] Download failed: track not found for ISRC: JPC909700945 | [Qobuz X] Download failed: track not found for ISRC: JPC909700945 | [Amazon] Download failed: all Amazon Music API endpoints failed: Amazon Music API E returned status 409: {"detail":"Failed to get track manifest: 200 {\"contentResponseList\":[{\"cdnType\":\"UNKNOWN\",\"contentIdentifier\":{\"identifier\":\"B07K39HHV5\",\"identifierType\":\"ASIN\"},\"contentResponseStatusCode\":\"CONTENT_NOT_ELIGIBLE\",\"contentResponseStatusMessage\":\"Content is not eligible for play... | [Amazon Music X] Download failed: all Amazon Music API endpoints failed: Amazon Music API X returned status 404: {"error":"No playable stream found for the requested regions.","attempts":[{"country":"US","tier":"hd","status":404,"error":"Stream/manifest from Amazon not available (e.g. not entitled in this region or track not streamable)"},{"country":"DE","tier":"hd","status":404,"error":"Stream/manifest from A... | [Deezer] Download failed: all Deezer API endpoints failed: Deezer API A returned status 502: <!DOCTYPE html>
+<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en-US"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en-US"> <!... | [Deezer X] Download failed: deezer X asset request failed with status 404: {"error":"No disponible"}
+   ID: 5zbHmwCUf0jVAeUaaPwBpD
+   URL: https://open.spotify.com/track/5zbHmwCUf0jVAeUaaPwBpD
+
+[SUCCESS] Jazzmerising - Original Mix - Rowpieces
+[SUCCESS] Rogue Satellite - Omni Trio
+[SUCCESS] Flight Of The Vulture - Peter Nice Trio
+[SUCCESS] Guest Spots (Aquasky Remix) - Remaster - Cold Mission; Aquasky
+[SUCCESS] Uplifter - A Sides
+[SUCCESS] The Sun - Hidden Agenda
+[SUCCESS] Only You - Intense
+[SUCCESS] Sister Stalking - London Elektricity
+[SUCCESS] Finer Things - Wax Doctor
+[SUCCESS] Extensions of Life - Makoto
+[SUCCESS] Everywhere I Go (2018 Remaster) - Remix - Sci-Clone
+[SUCCESS] Feels Like Heaven - Makoto
+[SUCCESS] Peace of Mind - Makoto
+[SUCCESS] Waltaa Park - Pt. 2 - Walter Mecca; Waltaa
+[SUCCESS] Harp of Gold - Peter Nice Trio
+[SUCCESS] Don't Go (Unreleased Dubplate) - Remaster - Aquasky
+[SUCCESS] All I Need - Wax Doctor
+2. Rolling Start Daytona USA - UniversalVGMusicians; ViRix Dreamcore (Super Smash Bros Ultimate Concept Album)
+   Error: [Qobuz] Download failed: track not found for ISRC: QZFZ21970185 | [Qobuz X] Download failed: track not found for ISRC: QZFZ21970185 | [Deezer] Download failed: all Deezer API endpoints failed: Deezer API B returned status 502: <!DOCTYPE html>
+<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en-US"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en-US"> <!... | [Deezer X] Download failed: deezer X asset request failed with status 404: {"error":"No disponible"}
+   ID: 61iPMJSQ9Y8LpUOPzpjsiV
+   URL: https://open.spotify.com/track/61iPMJSQ9Y8LpUOPzpjsiV
+
+[SUCCESS] Take My Soul Baby - Remix - Makoto
+[SUCCESS] BALD! - JPEGMAFIA
+[SUCCESS] Dezires - Remaster - Aquasky
+[SUCCESS] Brother Ignoramus - London Elektricity
+[SUCCESS] Stretch - Shogun Remix - Ken Ishii; Shogun
+[SUCCESS] Anytime - Original Mix - Redeyes
+[SUCCESS] Flying High - Makoto; AkirA
+[SUCCESS] Language - Tayla
+[SUCCESS] Enchanted - LTJ Bukem
+[SUCCESS] NEOY2K - Volant
+[SUCCESS] Fields of Mars - Phazer
+[SUCCESS] Incurable - London Elektricity
+[SUCCESS] You Can't Hold Me Back - 12" Version - Nookie
+[SUCCESS] Sky High - Makoto
+[SUCCESS] 25th Floor - Original Mix - Bungle
+[SUCCESS] depthcore - nuphory; polyscream
+[SUCCESS] HYPERTRANCE - nuphory
+[SUCCESS] Reality - Volant; Integra
+[SUCCESS] CHOOSE YOUR MACHINE - Kohta Takahashi
+[SUCCESS] Ruby Vintage - Cxldr3
+[SUCCESS] 92' Soul - Cxldr3
+[SUCCESS] Red Velvet Cake - Cxldr3
+[SUCCESS] Highway Flash - Cxldr3
+[SUCCESS] Speed Mirage - Cxldr3
+[SUCCESS] Dynamic Dance - Cxldr3
+[SUCCESS] Majestic Wind - Cxldr3
+[SUCCESS] Midnite Fix - Cxldr3
+[SUCCESS] Consciousness - Photek
+[SUCCESS] Dema Beats - Original Mix - Calibre
+[SUCCESS] Close To Me - Original Mix - Calibre
+[SUCCESS] Chasing a Dream - Technimatic
+[SUCCESS] Full Intention - High Contrast
+[SUCCESS] Rotation - Total Science
+[SUCCESS] Less Than Zero - Omni Trio
+[SUCCESS] instinct - CapsAdmin
+[SUCCESS] NEW GENERATION - Kohta Takahashi
+[SUCCESS] GIVE U ALL - SAM WAITIN
+[SUCCESS] GET FUNKY - SAM WAITIN
+[SUCCESS] SELECT - SAM WAITIN
+[SUCCESS] B.T. PASSAGE - SAM WAITIN
+[SUCCESS] OUTSIDE - Kohta Takahashi
+[SUCCESS] NOSTALGIC DAYS - Kohta Takahashi
+[SUCCESS] BE THE WIND - Kohta Takahashi
+[SUCCESS] RIGHT IN TIME - Kohta Takahashi
+[SUCCESS] DISTANT DAY - Kohta Takahashi
+[SUCCESS] PUBLIC ROAD - Kohta Takahashi
+[SUCCESS] Bobster's Groove - RoBKTA
+[SUCCESS] Ridge Racer Groove - Data-X; LIL ZX
+[SUCCESS] Lucid Rhythms (from "R4: Ridge Racer Type 4") - RoBKTA; Firaga
+[SUCCESS] On Your Way (from "R4: Ridge Racer Type 4") - RoBKTA; Andrew Elmore; Firaga
+[SUCCESS] Drivin' U 2 Dancin' (from "Ridge Racer Revolution") - RoBKTA; Firaga
+[SUCCESS] Disco Ball (from "Ridge Racer - Sony PSP") - RoBKTA; Firaga
+[SUCCESS] Blue Topaz (from "Rave Racer") - RoBKTA; Firaga
+[SUCCESS] Burnin' Rubber (from "R4: Ridge Racer Type 4") - RoBKTA; Firaga
+[SUCCESS] Your Vibe (from "R4: Ridge Racer Type 4") - RoBKTA; RoboRob; Firaga
+[SUCCESS] R4cin' All Night (Movin' In Circles) [from "Ridge Racer - Sony PSP"] - RoBKTA; Tudd; Firaga
+[SUCCESS] Night Stream (from "Ridge Racer - Sony PSP") - RoBKTA; ViRix Dreamcore; Firaga
+[SUCCESS] Deep Drive (from "Rage Racer") - RoBKTA; Firaga
+[SUCCESS] BEAT THE POLICE - Adolf Nomura
+[SUCCESS] FAST NIGHT - Adolf Nomura
+[SUCCESS] KING OF THE IRON FUCK - Adolf Nomura
+[SUCCESS] All Night - Peshay
+[SUCCESS] Ridge Racer 7 Rescore - Bonus Track - Andrew Elmore
+[SUCCESS] Burnout - Mijk Van Dijk
+[SUCCESS] Nightride - Mijk Van Dijk
+[SUCCESS] Power Slider - Mijk Van Dijk
+3. Moonrise Jet - Flowrian (Moonrise Jet / George Is In Town)
+   Error: [Qobuz] Download failed: track not found for ISRC: NLCK41021376 | [Qobuz X] Download failed: track not found for ISRC: NLCK41021376 | [Deezer] downloaded file duration mismatch: file is 239s, expected about 338s. file was removed | [Deezer X] Download failed: deezer X asset request failed with status 404: {"error":"No disponible"} | [Apple Music] Download failed: apple music file download failed: HTTP 429: {"trackId":"661041243","sourceUrl":"[Apple Music URL]","mode":"alac","success":false,"error":"Too many requests from this IP. Retry after 1 second(s)."}
+   ID: 3qCach4fkarjb4nHoSZBAT
+   URL: https://open.spotify.com/track/3qCach4fkarjb4nHoSZBAT
+
+[SUCCESS] CRABTRAP - Adolf Nomura
+[SUCCESS] Backspin - DJ Marky; XRS
+[SUCCESS] DREAM RACER 199X - Pulsar One
+[SUCCESS] the third place - disctr4k; fusoxide
+[SUCCESS] Wonderhill - Andrew Elmore
+[SUCCESS] Helter Skelter - Andrew Elmore
+[SUCCESS] Intentions - Hudson Mohawke
+[SUCCESS] Departure Lounge 2 - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Rage Racer - Remix - RIDGE RACER Series; Bandai Namco Game Music; Hiroshi Okubo(Bandai Namco Entertainment Inc.)
+[SUCCESS] Rotten7 - Remix - RIDGE RACER Series; Bandai Namco Game Music; Shinji Hosoe(Bandai Namco Entertainment Inc.)
+[SUCCESS] Kamikaze - Remix - RIDGE RACER Series; Bandai Namco Game Music; Ayako Saso (Bandai Namco Entertainment Inc.)
+[SUCCESS] Heart of Hearts - Remix - RIDGE RACER Series; Bandai Namco Game Music; Ayako Saso (Bandai Namco Entertainment Inc.)
+[SUCCESS] Heat Floor - Remix - RIDGE RACER Series; Bandai Namco Game Music; Shinji Hosoe(Bandai Namco Entertainment Inc.)
+[SUCCESS] Paris - Remix - RIDGE RACER Series; Bandai Namco Game Music; Nobuyoshi Sano (Bandai Namco Entertainment Inc.)
+[SUCCESS] Pearl Blue Soul - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Burnin’Rubber - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Quiet Curves - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] The Objective - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] EXH*NOTES - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Euphoria - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Mellow Curves - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Ignition - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Departure Lounge - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] World Touring - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Highride - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Warp Trooper - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Bassrider - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Pulse Phaze - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Chrome Drive - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Synthetic Life - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Disco Ball - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Night Stream - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Light Groove - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Vanishing Horizon - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Tunnel Visionary - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Tek Trek - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Beyond - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Rotterdam Nation - Remix - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Speedster - Remix - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Drive U 2 Dancing - Remix - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Rareheroes - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Blue Topaz - Remix - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Motor Species - Remix - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Ridge Racer - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Grip - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Euphoria - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Silver Stream - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Naked Glow - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Your Vibe - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Move Me - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Movin' in Circles - Kimara Lovelace; RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Eat'em Up! - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] TsuiTsui - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Samurai Rocket - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Daredevil - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] ENTRANCE - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] PLANET - Select Screen Edit - Aimee Blackschleger; RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] INTO THE LEAD - Aimee Blackschleger; RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] DIGITAL HORIZON - Aimee Blackschleger; RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] FUTURE DRIVEN - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] SLIDING BEAT - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] VIRTUOSO - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] PURPLE SKY - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] THE TIME IS NOW - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] RACER'S DELIGHT - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] TAKE YOU AWAY - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] SUPER ACCELERATION - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] PLANET - Aimee Blackschleger; RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Radiance - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Photon Field - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Galactic Life - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Chasing All My Dreams (Ending Credit) - Sunny Hilden; RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] IN TO THE LEAD (from RIDGE RACER) - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Stimulation (from RAGE RACER) - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] FUTURE DRIVEN (from RIDGE RACER) - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] NITRO RIGHT NOW　(from RIDGE RACER 3D) - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] RISING (from R:RACING EVOLUTION) - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Aberration (from RIDGE RACER 3D) - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Hard Drive (from RIDGE RACER 7) - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] VIRTUOSO (from RIDGE RACER) - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Saturation (from RIDGE RACER 7) - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Freak out (from RIDGE RACER 7) - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] T Minus Ten (from R:RACING EVOLUTION) - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] PURPLE SKY (from RIDGE RACER) - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] SLIDING BEAT (from RIDGE RACER) - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Transparency (from RIDGE RACER 7) - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Rev - Kohta Takahashi
+[SUCCESS] Euphotic - Kohta Takahashi
+[SUCCESS] LavaFlow - Kohta Takahashi
+[SUCCESS] TELLIN MYSELF - SAM WAITIN; nuphory
+[SUCCESS] Nitro Mantra - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] URBAN FRAGMENTS - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] TURN THE PAGE - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] ON YOUR WAY - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] GARAGE TALK - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] SPIRAL AHEAD - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] PEARL BLUE SOUL - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] NAKED GLOW - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] YOUR VIBE - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] LUCID RHYTHMS - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] THRU - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] SILHOUETTE DANCE - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] BURNIN' RUBBER - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] REVLIMIT FUNK - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] QUIET CURVES - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] MOTOR SPECIES - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] THE OBJECTIVE - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] MOVE ME - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] THE RIDE - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] MOVIN' IN CIRCLES - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] THE PARADE - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] EPILOGUE - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] RIDGE RACER -one more win- - Kimara Lovelace; RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] READY TO ROLL! - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] PARTY'S OVER - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] EAT'EM UP! - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] SHININ' (Album Edit) - Mondo Grosso; Kj
+[SUCCESS] SHOW THE WORLD - Stephanie Cooke; R:RACING EVOLUTION; Bandai Namco Game Music
+[SUCCESS] Kind Lady - Okuyatos
+[SUCCESS] False Fiction - ★STAR GUiTAR
+[SUCCESS] DIVAS - R:RACING EVOLUTION; Bandai Namco Game Music
+[SUCCESS] And it's so beautiful [feat. Kitty Brown] - Upper House Remix - JAMES SHIMOJI; Kitty Brown
+[SUCCESS] Supercruiser - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Sueno Del Mar - Tomomi Ukumori; RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Into The Light (feat. SAK.) - Hiroshi Okubo; SAK.
+[SUCCESS] Planet Wisp (from "Sonic Colors") - RoBKTA; Firaga
+[SUCCESS] BLAZE IT UP - Mondo Grosso
+[SUCCESS] Trail of Light - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Clear Memories - Hiroshi Okubo
+4. The Light Line - 佐野電磁 (Brightness)
+   Error: [Qobuz] Download failed: track not found for ISRC: JPZ921711122 | [Qobuz X] Download failed: track not found for ISRC: JPZ921711122 | [Deezer] Download failed: failed to get deezer url from spotify id: deezer track link not found for ISRC JPZ921711122 | [Deezer X] Download failed: failed to get deezer url from spotify id: deezer track link not found for ISRC JPZ921711122 | [Apple Music] Download failed: Post "[Apple Music API endpoint]": context deadline exceeded ([redacted host] exceeded while awaiting headers)
+   ID: 5r1tCY3R8SWPJ5tko2pLx4
+   URL: https://open.spotify.com/track/5r1tCY3R8SWPJ5tko2pLx4
+
+[SUCCESS] Star Line (GRHN Mix) - Genki Rockets
+[SUCCESS] move your body - AshZone; Lotu5
+[SUCCESS] JAZZ MISSION - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Arcade - From the Video Game "Screamer" - VGR
+[SUCCESS] JAM TOWN - Shinnaku
+[SUCCESS] Experiment Shuffle (Stage Theme) - Cxldr3
+[SUCCESS] Your Bells - 佐野電磁
+[SUCCESS] Infinity 2 - Soichi Terada
+[SUCCESS] RAGE RACER - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] MATHEMABEAT - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] LIGHTNING LUGE - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] INDUSTRIA - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] HURRICANE HUB - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] MECH MONSTER - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] SILVER STREAM - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] STIMULATION - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] VOLCANO VEHICLE - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] Explorers - RIDGE RACER Series; Bandai Namco Game Music
+[SUCCESS] I Want You - RIDGE RACER Series; Bandai Namco Game Music
